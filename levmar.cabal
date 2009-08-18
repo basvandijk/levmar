@@ -1,0 +1,45 @@
+name:          levmar
+version:       0.0.1
+cabal-version: >= 1.6
+build-type:    Simple
+stability:     experimental
+author:        Roel van Dijk & Bas van Dijk
+maintainer:    Roel van Dijk & Bas van Dijk
+copyright:     (c) 2009 Roel van Dijk & Bas van Dijk
+license:       BSD3
+license-file:  LICENSE
+category:      numerical
+synopsis:      A binding to the levmar (levenberg-marquardt) library
+
+library
+  build-depends: base >= 3 && < 4.2
+  exposed-modules: LevMar
+  ghc-options: -Wall
+  cc-options: -D_OPENMP
+  include-dirs: c-levmar
+  includes: c-levmar/lm.h
+  c-sources:
+    c-levmar/Axb.c
+    c-levmar/lm.c
+    c-levmar/lmbc.c
+    c-levmar/lmblec.c
+    c-levmar/lmlec.c
+    c-levmar/misc.c
+  pkgconfig-depends: lapack
+
+-- executable test
+--   build-depends: base >= 3 && < 4.2
+--   ghc-options: -Wall
+--   cc-options: -D_OPENMP
+--   other-modules: LevMar
+--   includes: c-levmar/lm.h
+--   c-sources:
+--     c-levmar/Axb.c
+--     c-levmar/lm.c
+--     c-levmar/lmbc.c
+--     c-levmar/lmblec.c
+--     c-levmar/lmlec.c
+--     c-levmar/misc.c
+--   pkgconfig-depends: lapack
+--   main-is: Test.hs
+
