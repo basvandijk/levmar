@@ -1,6 +1,6 @@
 module Main where
 
-import LevMar
+import LevMar (dlevmar_dif, defaultOpts)
 
 ys :: Fractional a => [a]
 ys = [ 2.90, 3.40, 3.10, 2.79, 3.15

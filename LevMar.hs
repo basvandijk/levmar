@@ -1,38 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
-
 module LevMar ( Model
-              , Jacobian
-
-              , withModel
-              , withJacobian
-
-              , C_LevMarDer
-              , C_LevMarDif
-              , C_LevMarBCDer
-              , C_LevMarBCDif
-              , C_LevMarLecDer
-              , C_LevMarLecDif
-              , C_LevMarBLecDer
-              , C_LevMarBLecDif
-
-              , c_dlevmar_der
-              , c_slevmar_der
-              , c_dlevmar_dif
-              , c_slevmar_dif
-              , c_dlevmar_bc_der
-              , c_slevmar_bc_der
-              , c_dlevmar_bc_dif
-              , c_slevmar_bc_dif
-              , c_dlevmar_lec_der
-              , c_slevmar_lec_der
-              , c_dlevmar_lec_dif
-              , c_slevmar_lec_dif
-              , c_dlevmar_blec_der
-              , c_slevmar_blec_der
-              , c_dlevmar_blec_dif
-              , c_slevmar_blec_dif
-
-              , PureModel
               , Options(..)
               , StopReason(..)
               , Info(..)
@@ -43,183 +9,18 @@ module LevMar ( Model
               , slevmar_dif
               ) where
 
-import Foreign.Marshal.Array
-import Foreign.C.Types
-import Foreign.Ptr
-import Foreign.Storable
-import Control.Exception (bracket)
+import Foreign.Marshal.Array ( allocaArray
+                             , peekArray
+                             , pokeArray
+                             , withArray
+                             )
+import Foreign.Ptr           (nullPtr)
+import Foreign.Storable      (Storable)
 
-type Model r =  Ptr r  -- p
-             -> Ptr r  -- hx
-             -> CInt   -- m
-             -> CInt   -- n
-             -> Ptr () -- adata
-             -> IO ()
+import qualified Bindings.LevMar as C_LMA
 
-type Jacobian a = Model a
 
-foreign import ccall "wrapper"
-  mkModel :: Model a -> IO (FunPtr (Model a))
-
-mkJacobian :: Jacobian a -> IO (FunPtr (Jacobian a))
-mkJacobian = mkModel
-
-withModel :: Model a -> (FunPtr (Model a) -> IO b) -> IO b
-withModel m = bracket (mkModel m) freeHaskellFunPtr
-
-withJacobian :: Jacobian a -> (FunPtr (Jacobian a) -> IO b) -> IO b
-withJacobian j = bracket (mkJacobian j) freeHaskellFunPtr
-
-type C_LevMarDer cr =  FunPtr (Model cr)    -- func
-                    -> FunPtr (Jacobian cr) -- jacf
-                    -> Ptr cr               -- p
-                    -> Ptr cr               -- x
-                    -> CInt                 -- m
-                    -> CInt                 -- n
-                    -> CInt                 -- itmax
-                    -> Ptr cr               -- opts
-                    -> Ptr cr               -- info
-                    -> Ptr cr               -- work
-                    -> Ptr cr               -- covar
-                    -> Ptr ()               -- adata
-                    -> IO CInt
-
-type C_LevMarDif cr =  FunPtr (Model cr) -- func
-                    -> Ptr cr            -- p
-                    -> Ptr cr            -- x
-                    -> CInt              -- m
-                    -> CInt              -- n
-                    -> CInt              -- itmax
-                    -> Ptr cr            -- opts
-                    -> Ptr cr            -- info
-                    -> Ptr cr            -- work
-                    -> Ptr cr            -- covar
-                    -> Ptr ()            -- adata
-                    -> IO CInt
-
-type C_LevMarBCDer cr =  FunPtr (Model cr)    -- func
-                      -> FunPtr (Jacobian cr) -- jacf
-                      -> Ptr cr               -- p
-                      -> Ptr cr               -- x
-                      -> CInt                 -- m
-                      -> CInt                 -- n
-                      -> Ptr cr               -- lb
-                      -> Ptr cr               -- ub
-                      -> CInt                 -- itmax
-                      -> Ptr cr               -- opts
-                      -> Ptr cr               -- info
-                      -> Ptr cr               -- work
-                      -> Ptr cr               -- covar
-                      -> Ptr ()               -- adata
-                      -> IO CInt
-
-type C_LevMarBCDif cr =  FunPtr (Model cr) -- func
-                      -> Ptr cr            -- p
-                      -> Ptr cr            -- x
-                      -> CInt              -- m
-                      -> CInt              -- n
-                      -> Ptr cr            -- lb
-                      -> Ptr cr            -- ub
-                      -> CInt              -- itmax
-                      -> Ptr cr            -- opts
-                      -> Ptr cr            -- info
-                      -> Ptr cr            -- work
-                      -> Ptr cr            -- covar
-                      -> Ptr ()            -- adata
-                      -> IO CInt
-
-type C_LevMarLecDer cr =  FunPtr (Model cr)    -- func
-                       -> FunPtr (Jacobian cr) -- jacf
-                       -> Ptr cr               -- p
-                       -> Ptr cr               -- x
-                       -> CInt                 -- m
-                       -> CInt                 -- n
-                       -> Ptr cr               -- A
-                       -> Ptr cr               -- B
-                       -> CInt                 -- k
-                       -> CInt                 -- itmax
-                       -> Ptr cr               -- opts
-                       -> Ptr cr               -- info
-                       -> Ptr cr               -- work
-                       -> Ptr cr               -- covar
-                       -> Ptr ()               -- adata
-                       -> IO CInt
-
-type C_LevMarLecDif cr =  FunPtr (Model cr) -- func
-                       -> Ptr cr            -- p
-                       -> Ptr cr            -- x
-                       -> CInt              -- m
-                       -> CInt              -- n
-                       -> Ptr cr            -- A
-                       -> Ptr cr            -- B
-                       -> CInt              -- k
-                       -> CInt              -- itmax
-                       -> Ptr cr            -- opts
-                       -> Ptr cr            -- info
-                       -> Ptr cr            -- work
-                       -> Ptr cr            -- covar
-                       -> Ptr ()            -- adata
-                       -> IO CInt
-
-type C_LevMarBLecDer cr =  FunPtr (Model cr)    -- func
-                        -> FunPtr (Jacobian cr) -- jacf
-                        -> Ptr cr               -- p
-                        -> Ptr cr               -- x
-                        -> CInt                 -- m
-                        -> CInt                 -- n
-                        -> Ptr cr               -- lb
-                        -> Ptr cr               -- ub
-                        -> Ptr cr               -- A
-                        -> Ptr cr               -- B
-                        -> CInt                 -- k
-                        -> Ptr cr               -- wghts
-                        -> CInt                 -- itmax
-                        -> Ptr cr               -- opts
-                        -> Ptr cr               -- info
-                        -> Ptr cr               -- work
-                        -> Ptr cr               -- covar
-                        -> Ptr ()               -- adata
-                        -> IO CInt
-
-type C_LevMarBLecDif cr =  FunPtr (Model cr) -- func
-                        -> Ptr cr            -- p
-                        -> Ptr cr            -- x
-                        -> CInt              -- m
-                        -> CInt              -- n
-                        -> Ptr cr            -- lb
-                        -> Ptr cr            -- ub
-                        -> Ptr cr            -- A
-                        -> Ptr cr            -- B
-                        -> CInt              -- k
-                        -> Ptr cr            -- wghts
-                        -> CInt              -- itmax
-                        -> Ptr cr            -- opts
-                        -> Ptr cr            -- info
-                        -> Ptr cr            -- work
-                        -> Ptr cr            -- covar
-                        -> Ptr ()            -- adata
-                        -> IO CInt
-
-foreign import ccall "dlevmar_der"      c_dlevmar_der      :: C_LevMarDer     CDouble
-foreign import ccall "slevmar_der"      c_slevmar_der      :: C_LevMarDer     CFloat
-foreign import ccall "dlevmar_dif"      c_dlevmar_dif      :: C_LevMarDif     CDouble
-foreign import ccall "slevmar_dif"      c_slevmar_dif      :: C_LevMarDif     CFloat
-foreign import ccall "dlevmar_bc_der"   c_dlevmar_bc_der   :: C_LevMarBCDer   CDouble
-foreign import ccall "slevmar_bc_der"   c_slevmar_bc_der   :: C_LevMarBCDer   CFloat
-foreign import ccall "dlevmar_bc_dif"   c_dlevmar_bc_dif   :: C_LevMarBCDif   CDouble
-foreign import ccall "slevmar_bc_dif"   c_slevmar_bc_dif   :: C_LevMarBCDif   CFloat
-foreign import ccall "dlevmar_lec_der"  c_dlevmar_lec_der  :: C_LevMarLecDer  CDouble
-foreign import ccall "slevmar_lec_der"  c_slevmar_lec_der  :: C_LevMarLecDer  CFloat
-foreign import ccall "dlevmar_lec_dif"  c_dlevmar_lec_dif  :: C_LevMarLecDif  CDouble
-foreign import ccall "slevmar_lec_dif"  c_slevmar_lec_dif  :: C_LevMarLecDif  CFloat
-foreign import ccall "dlevmar_blec_der" c_dlevmar_blec_der :: C_LevMarBLecDer CDouble
-foreign import ccall "slevmar_blec_der" c_slevmar_blec_der :: C_LevMarBLecDer CFloat
-foreign import ccall "dlevmar_blec_dif" c_dlevmar_blec_dif :: C_LevMarBLecDif CDouble
-foreign import ccall "slevmar_blec_dif" c_slevmar_blec_dif :: C_LevMarBLecDif CFloat
-
--------------------------------------------------------------------------------
-
-type PureModel r a = [r] -> a -> r
+type Model r a = [r] -> a -> r
 
 data Options r = Opts { opt_mu       :: r
                       , opt_epsilon1 :: r
@@ -247,7 +48,7 @@ data Info r = Info { inf_values          :: [r]
 
 type CoVarMatrix r = [r]
 
-type LevMarDif r a =  PureModel r a
+type LevMarDif r a =  Model r a
                    -> [r]       -- initial parameters
                    -> [(a, r)]  -- samples
                    -> Integer   -- itmax
@@ -277,12 +78,14 @@ listToInfo [a,b,c,d,e,f,g,h,i,j] =
 listToInfo _ = error "liftToInfo: wrong list length"
 
 convertModel :: (Real h, Fractional h, Storable c, Real c, Fractional c)
-             => [a] -> PureModel h a -> Model c
+             => [a] -> Model h a -> C_LMA.Model c
 convertModel xs f = \parPtr hxPtr numPar _ _ -> do
                       params <- peekArray (fromIntegral numPar) parPtr
-                      pokeArray hxPtr $ map (realToFrac . f (map realToFrac params)) xs
+                      pokeArray hxPtr $
+                        map (realToFrac . f (map realToFrac params)) xs
+
 gen_levmar_dif :: (Storable cr, Real cr, Fractional cr, RealFrac r)
-               => C_LevMarDif cr -> LevMarDif r a
+               => C_LMA.LevMarDif cr -> LevMarDif r a
 gen_levmar_dif minimise f ps samples itMax opts =
     let lenPs    = length ps
         (xs, ys) = unzip samples
@@ -291,7 +94,7 @@ gen_levmar_dif minimise f ps samples itMax opts =
            withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
              allocaArray 10 $ \infoPtr ->
                allocaArray (lenPs * lenPs) $ \coVarPtr ->
-                 withModel (convertModel xs f) $ \modelPtr -> do
+                 C_LMA.withModel (convertModel xs f) $ \modelPtr -> do
 
                    _ <- minimise modelPtr
                                  psPtr
@@ -315,7 +118,7 @@ gen_levmar_dif minimise f ps samples itMax opts =
                             )
 
 dlevmar_dif :: LevMarDif Double a
-dlevmar_dif = gen_levmar_dif c_dlevmar_dif
+dlevmar_dif = gen_levmar_dif C_LMA.dlevmar_dif
 
 slevmar_dif :: LevMarDif Float a
-slevmar_dif = gen_levmar_dif c_slevmar_dif
+slevmar_dif = gen_levmar_dif C_LMA.slevmar_dif
