@@ -29,7 +29,7 @@ library
   pkgconfig-depends: lapack
 
 -- executable test
---   build-depends: base >= 3 && < 4.2
+--   build-depends: base >= 3 && < 4.2, random >= 1 && < 1.2
 --   ghc-options: -Wall
 --   cc-options: -D_OPENMP
 --   other-modules: Bindings.LevMar, LevMar
