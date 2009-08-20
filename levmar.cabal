@@ -10,6 +10,7 @@ license:       BSD3
 license-file:  LICENSE
 category:      numerical
 synopsis:      A binding to the levmar (levenberg-marquardt) library
+description:   http://www.ics.forth.gr/~lourakis/levmar/
 
 library
   build-depends: base >= 3 && < 4.2
