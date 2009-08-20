@@ -219,7 +219,7 @@ foreign import ccall "slevmar_blec_dif" c_slevmar_blec_dif :: C_LevMarBLecDif CF
 
 -------------------------------------------------------------------------------
 
-type PureModel r = [r] -> Int -> r
+type PureModel r a = [r] -> a -> r
 
 data Options r = Opts { opt_mu       :: r
                       , opt_epsilon1 :: r
@@ -247,12 +247,12 @@ data Info r = Info { inf_values          :: [r]
 
 type CoVarMatrix r = [r]
 
-type LevMarDif r =  PureModel r
-                 -> [r]       -- initial parameters
-                 -> [r]       -- samples
-                 -> Integer   -- itmax
-                 -> Options r -- opts
-                 -> IO ([r], Info r, CoVarMatrix r)
+type LevMarDif r a =  PureModel r a
+                   -> [r]       -- initial parameters
+                   -> [(a, r)]  -- samples
+                   -> Integer   -- itmax
+                   -> Options r -- opts
+                   -> IO ([r], Info r, CoVarMatrix r)
 
 defaultOpts :: Fractional r => Options r
 defaultOpts = Opts { opt_mu       = 1e-3
@@ -277,49 +277,45 @@ listToInfo [a,b,c,d,e,f,g,h,i,j] =
 listToInfo _ = error "liftToInfo: wrong list length"
 
 convertModel :: (Real h, Fractional h, Storable c, Real c, Fractional c)
-             => PureModel h -> Model c
-convertModel f = \p hx m n _ -> do
-                   ps <- peekArray (fromIntegral m) p
-                   let ps' = map realToFrac ps
-                       ns  = [0 .. fromIntegral n - 1]
-                       hx' = map (realToFrac . f ps') ns
-                   pokeArray hx hx'
-
-
+             => [a] -> PureModel h a -> Model c
+convertModel xs f = \parPtr hxPtr numPar _ _ -> do
+                      params <- peekArray (fromIntegral numPar) parPtr
+                      pokeArray hxPtr $ map (realToFrac . f (map realToFrac params)) xs
 gen_levmar_dif :: (Storable cr, Real cr, Fractional cr, RealFrac r)
-               => C_LevMarDif cr -> LevMarDif r
-gen_levmar_dif minimise f ps xs itMax opts = let lenPs = length ps in
-    withArray (map realToFrac ps) $ \psPtr ->
-      withArray (map realToFrac xs) $ \xsPtr ->
-        withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
-          allocaArray 10 $ \infoPtr ->
-            allocaArray (lenPs * lenPs) $ \coVarPtr ->
-              withModel (convertModel f) $ \modelPtr -> do
+               => C_LevMarDif cr -> LevMarDif r a
+gen_levmar_dif minimise f ps samples itMax opts =
+    let lenPs    = length ps
+        (xs, ys) = unzip samples
+    in withArray (map realToFrac ps) $ \psPtr ->
+         withArray (map realToFrac ys) $ \ysPtr ->
+           withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
+             allocaArray 10 $ \infoPtr ->
+               allocaArray (lenPs * lenPs) $ \coVarPtr ->
+                 withModel (convertModel xs f) $ \modelPtr -> do
 
-                _ <- minimise modelPtr
-                              psPtr
-                              xsPtr
-                              (fromIntegral $ lenPs)
-                              (fromIntegral $ length xs)
-                              (fromIntegral itMax)
-                              optsPtr
-                              infoPtr
-                              nullPtr -- work
-                              coVarPtr
-                              nullPtr -- adata
+                   _ <- minimise modelPtr
+                                 psPtr
+                                 ysPtr
+                                 (fromIntegral $ lenPs)
+                                 (fromIntegral $ length samples)
+                                 (fromIntegral itMax)
+                                 optsPtr
+                                 infoPtr
+                                 nullPtr -- work
+                                 coVarPtr
+                                 nullPtr -- adata
 
-                result <- peekArray lenPs psPtr
-                info   <- peekArray 10 infoPtr
-                coVar  <- peekArray (lenPs * lenPs) coVarPtr
+                   result <- peekArray lenPs psPtr
+                   info   <- peekArray 10 infoPtr
+                   coVar  <- peekArray (lenPs * lenPs) coVarPtr
 
-                return $ ( map realToFrac result
-                         , listToInfo $ map realToFrac info
-                         , map realToFrac coVar
-                         )
+                   return $ ( map realToFrac result
+                            , listToInfo $ map realToFrac info
+                            , map realToFrac coVar
+                            )
 
-
-dlevmar_dif :: LevMarDif Double
+dlevmar_dif :: LevMarDif Double a
 dlevmar_dif = gen_levmar_dif c_dlevmar_dif
 
-slevmar_dif :: LevMarDif Float
+slevmar_dif :: LevMarDif Float a
 slevmar_dif = gen_levmar_dif c_slevmar_dif
