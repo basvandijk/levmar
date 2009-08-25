@@ -51,22 +51,19 @@ import Control.Exception (bracket)
 
 #include <lm.h>
 
-_LM_OPTS_SZ :: Num a => a
+_LM_OPTS_SZ, _LM_INFO_SZ :: Int
 _LM_OPTS_SZ = #const LM_OPTS_SZ
-
-_LM_INFO_SZ :: Num a => a
 _LM_INFO_SZ = #const LM_INFO_SZ
 
-_LM_ERROR :: Num a => a
+_LM_ERROR :: CInt
 _LM_ERROR = #const LM_ERROR
 
--- TODO: The HSC #const construct only works for integer values. We
--- need something similar for floating-point values. It is posible to
--- define your own constructs but we haven't done that yet:
+#let const_real r = "%e", r
+
 _LM_INIT_MU, _LM_STOP_THRESH, _LM_DIFF_DELTA :: Fractional a => a
-_LM_INIT_MU     = 1e-03 -- #const LM_INIT_MU
-_LM_STOP_THRESH = 1e-17 -- #const LM_STOP_THRESH
-_LM_DIFF_DELTA  = 1e-06 -- #const LM_DIFF_DELTA
+_LM_INIT_MU     = #const_real LM_INIT_MU
+_LM_STOP_THRESH = #const_real LM_STOP_THRESH
+_LM_DIFF_DELTA  = #const_real LM_DIFF_DELTA
 
 _LM_VERSION :: String
 _LM_VERSION = #const_str LM_VERSION
