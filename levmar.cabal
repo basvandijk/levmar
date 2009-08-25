@@ -57,7 +57,7 @@ library
     c-levmar/misc.c
   pkgconfig-depends: lapack
 
--- executable test
+-- executable testLevMarIntermediate
 --   build-depends: base >= 3 && < 4.2, random >= 1 && < 1.2
 --   ghc-options: -Wall -O2
 --   cc-options: -D_OPENMP
@@ -73,5 +73,23 @@ library
 --     c-levmar/lmlec.c
 --     c-levmar/misc.c
 --   pkgconfig-depends: lapack
---   main-is: Test.hs
+--   main-is: TestLevMarIntermediate.hs
+
+-- executable testLevMar
+--   build-depends: base >= 3 && < 4.2, random >= 1 && < 1.2
+--   ghc-options: -Wall -O2
+--   cc-options: -D_OPENMP
+--   other-modules: LevMar.Binding,
+--                  LevMar.Intermediate,
+--                  LevMar
+--   include-dirs: c-levmar
+--   c-sources:
+--     c-levmar/Axb.c
+--     c-levmar/lm.c
+--     c-levmar/lmbc.c
+--     c-levmar/lmblec.c
+--     c-levmar/lmlec.c
+--     c-levmar/misc.c
+--   pkgconfig-depends: lapack
+--   main-is: TestLevMar.hs
 
