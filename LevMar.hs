@@ -1,124 +1,93 @@
-module LevMar ( Model
-              , Options(..)
-              , StopReason(..)
-              , Info(..)
-              , CoVarMatrix
-              , LevMarDif
-              , defaultOpts
-              , dlevmar_dif
-              , slevmar_dif
-              ) where
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE EmptyDataDecls  #-}
+{-# LANGUAGE RankNTypes  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-import Foreign.Marshal.Array ( allocaArray
-                             , peekArray
-                             , pokeArray
-                             , withArray
-                             )
-import Foreign.Ptr           (nullPtr)
-import Foreign.Storable      (Storable)
+module LevMar
+    ( dlevmar_dif
+    , slevmar_dif
+    , LevMarDif
+    , ModelFunc
+    , Vector(..)
+    , Z, S
+    , ($*)
+    , CovarMatrix
 
-import qualified Bindings.LevMar as C_LMA
+    , LI.Options(..)
+    , LI.defaultOpts
+    , LI.StopReason(..)
+    , LI.Info(..)
+    ) where
 
+import qualified LevMar.Intermediate as LI
 
-type Model r a = [r] -> a -> r
+import Unsafe.Coerce (unsafeCoerce)
 
-data Options r = Opts { opt_mu       :: r
-                      , opt_epsilon1 :: r
-                      , opt_epsilon2 :: r
-                      , opt_epsilon3 :: r
-                      , opt_delta    :: r
-                      } deriving Show
+data Z
+data S n
 
-data StopReason = SmallGradient
-                | SmallDp
-                | MaxIterations
-                | SingularMatrix
-                | SmallestError
-                | SmallE_2
-                | InvalidValues
-                  deriving (Show, Enum)
+data Vector n a where
+   Nil   :: Vector Z a
+   (:*:) :: a -> Vector n a -> Vector (S n) a
 
-data Info r = Info { inf_values          :: [r]
-                   , inf_numIter         :: Integer
-                   , inf_stopReason      :: StopReason
-                   , inf_numFuncEvals    :: Integer
-                   , inf_numJacobEvals   :: Integer
-                   , inf_numLinSysSolved :: Integer
-                   } deriving Show
+infixr 5 :*:
 
-type CoVarMatrix r = [r]
+consPrecedence :: Int
+consPrecedence = 5
 
-type LevMarDif r a =  Model r a
-                   -> [r]       -- initial parameters
-                   -> [(a, r)]  -- samples
-                   -> Integer   -- itmax
-                   -> Options r -- opts
-                   -> IO ([r], Info r, CoVarMatrix r)
+instance Show a => Show (Vector n a) where
+   showsPrec _ Nil        = showString "Nil"
+   showsPrec p (x :*: xs) = showParen (p > consPrecedence) $
+                            showsPrec (consPrecedence + 1) x .
+                            showString " :*: "               .
+                            showsPrec consPrecedence xs
 
-defaultOpts :: Fractional r => Options r
-defaultOpts = Opts { opt_mu       = 1e-3
-                   , opt_epsilon1 = 1e-17
-                   , opt_epsilon2 = 1e-17
-                   , opt_epsilon3 = 1e-17
-                   , opt_delta    = 1e-6
-                   }
+toList :: Vector n a -> [a]
+toList Nil        = []
+toList (x :*: xs) = x : toList xs
 
-optsToList :: Options r -> [r]
-optsToList (Opts mu eps1 eps2 eps3 delta) = [mu, eps1, eps2, eps3, delta]
+vectorCPS :: [a] -> (forall n. Vector n a -> t) -> t
+vectorCPS []       f = f Nil
+vectorCPS (x : xs) f = vectorCPS xs (\ys -> f (x :*: ys))
 
-listToInfo :: RealFrac r => [r] -> Info r
-listToInfo [a,b,c,d,e,f,g,h,i,j] =
-    Info { inf_values          = [a,b,c,d,e]
-         , inf_numIter         = floor f
-         , inf_stopReason      = toEnum $ floor g - 1
-         , inf_numFuncEvals    = floor h
-         , inf_numJacobEvals   = floor i
-         , inf_numLinSysSolved = floor j
-         }
-listToInfo _ = error "liftToInfo: wrong list length"
+-- | You have to make sure that the length of the input list equals
+-- the length in the type of the output vector.
+reallyUnsafeFromList :: [a] -> Vector n a
+reallyUnsafeFromList xs = vectorCPS xs unsafeCoerce
 
-convertModel :: (Real h, Fractional h, Storable c, Real c, Fractional c)
-             => [a] -> Model h a -> C_LMA.Model c
-convertModel xs f = \parPtr hxPtr numPar _ _ -> do
-                      params <- peekArray (fromIntegral numPar) parPtr
-                      pokeArray hxPtr $
-                        map (realToFrac . f (map realToFrac params)) xs
+type family ModelFunc n a :: *
 
-gen_levmar_dif :: (Storable cr, Real cr, Fractional cr, RealFrac r)
-               => C_LMA.LevMarDif cr -> LevMarDif r a
-gen_levmar_dif minimise f ps samples itMax opts =
-    let lenPs    = length ps
-        (xs, ys) = unzip samples
-    in withArray (map realToFrac ps) $ \psPtr ->
-         withArray (map realToFrac ys) $ \ysPtr ->
-           withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
-             allocaArray 10 $ \infoPtr ->
-               allocaArray (lenPs * lenPs) $ \coVarPtr ->
-                 C_LMA.withModel (convertModel xs f) $ \modelPtr -> do
+type instance ModelFunc Z     a = a
+type instance ModelFunc (S n) a = a -> ModelFunc n a
 
-                   _ <- minimise modelPtr
-                                 psPtr
-                                 ysPtr
-                                 (fromIntegral $ lenPs)
-                                 (fromIntegral $ length samples)
-                                 (fromIntegral itMax)
-                                 optsPtr
-                                 infoPtr
-                                 nullPtr -- work
-                                 coVarPtr
-                                 nullPtr -- adata
+($*) :: ModelFunc n a -> Vector n a -> a
+f $* Nil        = f
+f $* (x :*: xs) = f x $* xs
 
-                   result <- peekArray lenPs psPtr
-                   info   <- peekArray 10 infoPtr
-                   coVar  <- peekArray (lenPs * lenPs) coVarPtr
+type CovarMatrix n r = Vector n (Vector n r)
 
-                   return $ ( map realToFrac result
-                            , listToInfo $ map realToFrac info
-                            , map realToFrac coVar
-                            )
+type LevMarDif n r a =  (a -> ModelFunc n r)
+                     -> Vector n r
+                     -> [(a, r)]
+                     -> Integer
+                     -> LI.Options r
+                     -> (Vector n r, LI.Info r, CovarMatrix n r)
 
-dlevmar_dif :: LevMarDif Double a
-dlevmar_dif = gen_levmar_dif C_LMA.dlevmar_dif
+gen_levmar_dif :: forall n r a. LI.LevMarDif r a -> LevMarDif n r a
+gen_levmar_dif levmar_dif model params samples itMax opts =
+    let (psResult, info, covar) = levmar_dif (\x ps -> model x $* (reallyUnsafeFromList ps :: Vector n r))
+                                             (toList params)
+                                             samples
+                                             itMax
+                                             opts
+    in ( reallyUnsafeFromList psResult
+       , info
+       , reallyUnsafeFromList $ map reallyUnsafeFromList covar
+       )
 
-slevmar_dif :: LevMarDif Float a
-slevmar_dif = gen_levmar_dif C_LMA.slevmar_dif
+dlevmar_dif :: LevMarDif n Double a
+dlevmar_dif = gen_levmar_dif LI.dlevmar_dif
+
+slevmar_dif :: LevMarDif n Float a
+slevmar_dif = gen_levmar_dif LI.slevmar_dif
