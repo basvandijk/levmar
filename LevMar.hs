@@ -115,12 +115,14 @@ fromList = unFromList $ induction (witnessNat :: n)
 unsafeFromList :: forall a n. Nat n => [a] -> SizedList a n
 unsafeFromList = fromJust . fromList
 
-type family Model a n :: *
+-- | @Model r n@ represents a function from @n@ @r@'s to a @r@.
+-- For example: @Model Double (S (S (S Z))) ~ Double -> Double -> Double -> Double@
+type family Model r n :: *
 
-type instance Model a Z     = a
-type instance Model a (S n) = a -> Model a n
+type instance Model r Z     = r
+type instance Model r (S n) = r -> Model r n
 
-($*) :: Model a n -> SizedList a n -> a
+($*) :: Model r n -> SizedList r n -> r
 f $* Nil        = f
 f $* (x ::: xs) = f x $* xs
 
