@@ -14,6 +14,8 @@ import Data.Maybe (fromJust)
 
 import TypeLevelNat (Z(..), S(..), Nat, induction, witnessNat, N(..))
 
+-- | A list which is indexed with a type-level natural that denotes the size of
+-- the list.
 data SizedList a n where
    Nil   :: SizedList a Z
    (:::) :: a -> SizedList a n -> SizedList a (S n)

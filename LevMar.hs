@@ -35,9 +35,11 @@ type family ParamFunc r n :: *
 type instance ParamFunc r Z     = r
 type instance ParamFunc r (S n) = r -> ParamFunc r n
 
+-- | @f $* ps@ applies the /n/-arity function @f@ to each of the parameters in
+-- the /n/-sized list @ps@.
 ($*) :: ParamFunc r n -> SizedList r n -> r
 f $* Nil        = f
-f $* (x ::: xs) = f x $* xs
+f $* (p ::: ps) = f p $* ps
 
 type Model a r n = a -> ParamFunc r n
 

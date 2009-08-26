@@ -10,35 +10,36 @@ license:       BSD3
 license-file:  LICENSE
 category:      numerical
 synopsis:      A binding to the levmar (Levenberg-Marquardt) library
-description:   The Levenberg-Marquardt algorithm is an iterative
-               technique that finds a local minimum of a function that
-               is expressed as the sum of squares of nonlinear
-               functions. It has become a standard technique for
-               nonlinear least-squares problems and can be thought of
-               as a combination of steepest descent and the
-               Gauss-Newton method. When the current solution is far
-               from the correct one, the algorithm behaves like a
-               steepest descent method: slow, but guaranteed to
-               converge. When the current solution is close to the
+description:   The Levenberg-Marquardt algorithm is an iterative technique that
+               finds a local minimum of a function that is expressed as the sum
+               of squares of nonlinear functions. It has become a standard
+               technique for nonlinear least-squares problems and can be thought
+               of as a combination of steepest descent and the Gauss-Newton
+               method. When the current solution is far from the correct one,
+               the algorithm behaves like a steepest descent method: slow, but
+               guaranteed to converge. When the current solution is close to the
                correct solution, it becomes a Gauss-Newton method.
                .
-               Both unconstrained and constrained (under linear
-               equations and box constraints) Levenberg-Marquardt
-               variants are included.
+               Both unconstrained and constrained (under linear equations and
+               box constraints) Levenberg-Marquardt variants are included.
+               All functions have Double and Float variants.
                .
                See: <http://www.ics.forth.gr/~lourakis/levmar/>
                .
                This library consists of three layers:
                .
-               * LevMar.Binding: A low-level layer which directly
-               exports the C bindings.
-               .
+               * LevMar.Binding and LevMar.Binding.CurryFriendly: The first is a
+                 low-level layer which directly exports the C bindings. The
+                 second, as its name implies, exports the same functions as the
+                 first but with a different argument order which is nicer for
+                 currying.
+	       .
                * LevMar.Intermediate: A medium-level layer that wraps the
-               low-level functions and provides a more Haskell
-               friendly interface.
+                 low-level functions and provides a more Haskell friendly
+                 interface.
                .
-	       * LevMar: A high-level layer that uses type-level
-               programming to add extra safety.
+	       * LevMar: A high-level layer that uses type-level programming to
+                 add extra type safety.
 
 library
   build-depends: base >= 3 && < 4.2
