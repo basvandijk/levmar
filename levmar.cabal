@@ -26,7 +26,7 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                equations and box constraints) Levenberg-Marquardt
                variants are included.
                .
-               See: http://www.ics.forth.gr/~lourakis/levmar/
+               See: <http://www.ics.forth.gr/~lourakis/levmar/>
                .
                This library consists of three layers:
                .
@@ -34,17 +34,17 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                exports the C bindings.
                .
                * LevMar.Intermediate: A medium-level layer that wraps the
-               lower-level functions and provides a more Haskell
+               low-level functions and provides a more Haskell
                friendly interface.
                .
 	       * LevMar: A high-level layer that uses type-level
-                 programming to add extra safety.
+               programming to add extra safety.
 
 library
   build-depends: base >= 3 && < 4.2
-  exposed-modules: LevMar.Binding,
-                   LevMar.Intermediate,
-                   LevMar
+  exposed-modules: LevMar.Binding
+                 , LevMar.Intermediate
+                 -- , LevMar
   ghc-options: -Wall -O2
   cc-options: -D_OPENMP
   include-dirs: c-levmar
@@ -58,12 +58,13 @@ library
   pkgconfig-depends: lapack
 
 -- executable testLevMarIntermediate
---   build-depends: base >= 3 && < 4.2, random >= 1 && < 1.2
+--   build-depends: base   >= 3 && < 4.2
+--                , random >= 1 && < 1.2
 --   ghc-options: -Wall -O2
 --   cc-options: -D_OPENMP
---   other-modules: LevMar.Binding,
---                  LevMar.Intermediate,
---                  LevMar
+--   other-modules: LevMar.Binding
+--                , LevMar.Intermediate
+--                -- , LevMar
 --   include-dirs: c-levmar
 --   c-sources:
 --     c-levmar/Axb.c

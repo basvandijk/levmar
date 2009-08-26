@@ -28,11 +28,14 @@ test :: Show a
      -> [a]      -- x-values of samples
      -> Double   -- noise level
      -> ([Double], Info Double, CovarMatrix Double)
-test f ps xs noise = dlevmar_dif f
-                                 (replicate (length ps) 0) -- all params 0
-                                 samples'
-                                 1000
-                                 defaultOpts
+test f ps xs noise = dlevmar f
+                             Nothing
+                             (replicate (length ps) 0) -- all params 0
+                             samples'
+                             1000
+                             defaultOpts
+                             Nothing
+                             Nothing
     where
       ns = take (length xs) $ randoms $ mkStdGen rndGenSeed
       samples = zip xs $ map (\x -> f x ps) xs
