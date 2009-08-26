@@ -1,8 +1,10 @@
-{-# LANGUAGE GADTs #-}
-
 module Main where
 
 import LevMar
+
+import TypeLevelNat (N(..))
+import SizedList (lengthSL, replicateSL)
+
 import System.Random
 
 model_1 :: a -> r -> r
@@ -28,7 +30,7 @@ test :: (Show a, Nat n)
      -> (SizedList Double n, Info Double, CovarMatrix Double n)
 test f ps xs noise = levmar f
                             Nothing
-                            (replicateV (lengthV ps) 0)
+                            (replicateSL (lengthSL ps) 0)
                             samples'
                             1000
                             defaultOpts
@@ -42,14 +44,3 @@ test f ps xs noise = levmar f
 main :: IO ()
 main = print $ test model_3 (5 ::: 3 ::: 7 ::: Nil) [1..50] 2
 
-data N n where
-    Zero :: N Z
-    Succ :: N n -> N (S n)
-
-replicateV :: N n -> a -> SizedList a n
-replicateV Zero     _ = Nil
-replicateV (Succ n) x = x ::: replicateV n x
-
-lengthV :: SizedList a n -> N n
-lengthV Nil        = Zero
-lengthV (_ ::: xs) = Succ (lengthV xs)

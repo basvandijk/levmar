@@ -51,10 +51,15 @@ import Control.Exception (bracket)
 
 #include <lm.h>
 
-_LM_OPTS_SZ, _LM_INFO_SZ :: Int
+-- |The maximum size of the options array.
+_LM_OPTS_SZ :: Int
 _LM_OPTS_SZ = #const LM_OPTS_SZ
+
+-- |The size of the info array.
+_LM_INFO_SZ :: Int
 _LM_INFO_SZ = #const LM_INFO_SZ
 
+-- |Integer value which represents an error when returned by the C library routines.
 _LM_ERROR :: CInt
 _LM_ERROR = #const LM_ERROR
 
@@ -65,9 +70,11 @@ _LM_INIT_MU     = #const_real LM_INIT_MU
 _LM_STOP_THRESH = #const_real LM_STOP_THRESH
 _LM_DIFF_DELTA  = #const_real LM_DIFF_DELTA
 
+-- |The version of the C levmar library.
 _LM_VERSION :: String
 _LM_VERSION = #const_str LM_VERSION
 
+-- |Functional relation describing measurements.
 type Model r =  Ptr r  -- p
              -> Ptr r  -- hx
              -> CInt   -- m
@@ -77,8 +84,7 @@ type Model r =  Ptr r  -- p
 
 type Jacobian a = Model a
 
-foreign import ccall "wrapper"
-  mkModel :: Model a -> IO (FunPtr (Model a))
+foreign import ccall "wrapper" mkModel :: Model a -> IO (FunPtr (Model a))
 
 mkJacobian :: Jacobian a -> IO (FunPtr (Jacobian a))
 mkJacobian = mkModel

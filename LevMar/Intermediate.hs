@@ -23,6 +23,7 @@ import Data.Maybe            (fromJust, isJust)
 import qualified LevMar.Binding.CurryFriendly as LMA_C
 
 type ParamFunc  r = [r] -> r
+-- |Functional relation describing measurements.
 type Model    a r = a -> ParamFunc r
 type Jacobian a r = Model a r
 
