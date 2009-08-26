@@ -8,27 +8,28 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module LevMar
-    ( dlevmar_dif
-    , slevmar_dif
+    ( levmar
 
-    , LevMarDif
+    , LevMar
+    , ParamFunc
     , Model
+    , Jacobian
     , Z(..), S(..)
     , SizedList(..)
     , Nat(..)
     , CovarMatrix
 
-    , LI.Options(..)
-    , LI.defaultOpts
-    , LI.StopReason(..)
-    , LI.Info(..)
+    , LMA_I.Options(..)
+    , LMA_I.defaultOpts
+    , LMA_I.StopReason(..)
+    , LMA_I.Info(..)
 
     -- TODO: The following is only needed for the test:
     , ($*)
     )
     where
 
-import qualified LevMar.Intermediate as LI
+import qualified LevMar.Intermediate as LMA_I
 
 import Data.Maybe (fromJust)
 
@@ -81,10 +82,10 @@ consPrecedence = 5
 
 instance Show a => Show (SizedList a n) where
     showsPrec _ Nil        = showString "Nil"
-    showsPrec p (x ::: xs) = showParen (p > consPrecedence)   $
-                             showsPrec (consPrecedence + 1) x .
-                             showString " ::: "               .
-                             showsPrec consPrecedence xs
+    showsPrec p (x ::: xs) = showParen (p > consPrecedence)
+                           $ showsPrec (consPrecedence + 1) x
+                           . showString " ::: "
+                           . showsPrec consPrecedence xs
 
 newtype ToList a n = ToList { unToList :: SizedList a n -> [a] }
 
@@ -115,40 +116,45 @@ fromList = unFromList $ induction (witnessNat :: n)
 unsafeFromList :: forall a n. Nat n => [a] -> SizedList a n
 unsafeFromList = fromJust . fromList
 
--- | @Model r n@ represents a function from @n@ @r@'s to a @r@.
--- For example: @Model Double (S (S (S Z))) ~ Double -> Double -> Double -> Double@
-type family Model r n :: *
+-- | @ParamFunc r n@ represents a function from @n@ @r@'s to a @r@.
+-- For example: @ParamFunc Double (S (S (S Z))) ~ Double -> Double -> Double -> Double@
+type family ParamFunc r n :: *
 
-type instance Model r Z     = r
-type instance Model r (S n) = r -> Model r n
+type instance ParamFunc r Z     = r
+type instance ParamFunc r (S n) = r -> ParamFunc r n
 
-($*) :: Model r n -> SizedList r n -> r
+($*) :: ParamFunc r n -> SizedList r n -> r
 f $* Nil        = f
 f $* (x ::: xs) = f x $* xs
 
+type Model a r n = a -> ParamFunc r n
+
+type Jacobian a r n = Model a r n
+
 type CovarMatrix r n = SizedList (SizedList r n) n
 
-type LevMarDif a r n =  (a -> Model r n)
-                     -> SizedList r n
-                     -> [(a, r)]
-                     -> Integer
-                     -> LI.Options r
-                     -> (SizedList r n, LI.Info r, CovarMatrix r n)
+type LevMar a r n =  (Model a r n)          -- model
+                  -> Maybe (Jacobian a r n) -- jacobian
+                  -> SizedList r n          -- init params
+                  -> [(a, r)]               -- samples
+                  -> Integer                -- max iterations
+                  -> LMA_I.Options r
+                  -> Maybe (SizedList r n)  -- lower bounds
+                  -> Maybe (SizedList r n)  -- upper bounds
+                  -> (SizedList r n, LMA_I.Info r, CovarMatrix r n)
 
-gen_levmar_dif :: forall n r a. Nat n => LI.LevMarDif r a -> LevMarDif a r n
-gen_levmar_dif levmar_dif model params samples itMax opts =
-    let (psResult, info, covar) = levmar_dif (\x ps -> model x $* (unsafeFromList ps :: SizedList r n))
-                                             (toList params)
-                                             samples
-                                             itMax
-                                             opts
+levmar :: forall n r a. (Nat n, LMA_I.LevMarable r) => LevMar a r n
+levmar model mJac params samples itMax opts mLowBs mUpBs =
+    let mkModel f = \x ps -> f x $* (unsafeFromList ps :: SizedList r n)
+        (psResult, info, covar) = LMA_I.levmar (mkModel model)
+                                               (fmap mkModel mJac)
+                                               (toList params)
+                                               samples
+                                               itMax
+                                               opts
+                                               (fmap toList mLowBs)
+                                               (fmap toList mUpBs)
     in ( unsafeFromList psResult
        , info
        , unsafeFromList $ map unsafeFromList covar
        )
-
-dlevmar_dif :: forall a n. Nat n => LevMarDif a Double n
-dlevmar_dif = gen_levmar_dif LI.dlevmar_dif
-
-slevmar_dif :: forall a n. Nat n => LevMarDif a Float n
-slevmar_dif = gen_levmar_dif LI.slevmar_dif

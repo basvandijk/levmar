@@ -21,16 +21,19 @@ rndGenSeed :: Int
 rndGenSeed = 123456
 
 test :: (Show a, Nat n)
-     => (a -> Model Double n)
+     => (Model a Double n)
      -> SizedList Double n
      -> [a]
      -> Double
      -> (SizedList Double n, Info Double, CovarMatrix Double n)
-test f ps xs noise = dlevmar_dif f
-                                 (replicateV (lengthV ps) 0)
-                                 samples'
-                                 1000
-                                 defaultOpts
+test f ps xs noise = levmar f
+                            Nothing
+                            (replicateV (lengthV ps) 0)
+                            samples'
+                            1000
+                            defaultOpts
+                            Nothing
+                            Nothing
     where
       ns = take (length xs) $ randoms $ mkStdGen rndGenSeed
       samples = zip xs $ map (\x -> f x $* ps) xs

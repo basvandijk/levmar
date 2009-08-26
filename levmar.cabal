@@ -43,8 +43,9 @@ description:   The Levenberg-Marquardt algorithm is an iterative
 library
   build-depends: base >= 3 && < 4.2
   exposed-modules: LevMar.Binding
+                 , LevMar.Binding.CurryFriendly
                  , LevMar.Intermediate
-                 -- , LevMar
+                 , LevMar
   ghc-options: -Wall -O2
   cc-options: -D_OPENMP
   include-dirs: c-levmar
@@ -80,9 +81,10 @@ library
 --   build-depends: base >= 3 && < 4.2, random >= 1 && < 1.2
 --   ghc-options: -Wall -O2
 --   cc-options: -D_OPENMP
---   other-modules: LevMar.Binding,
---                  LevMar.Intermediate,
---                  LevMar
+--   other-modules: LevMar.Binding
+--                , LevMar.Binding.CurryFriendly
+--                , LevMar.Intermediate
+--                , LevMar
 --   include-dirs: c-levmar
 --   c-sources:
 --     c-levmar/Axb.c
