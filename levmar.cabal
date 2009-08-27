@@ -47,6 +47,10 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                linked with this library. For details see the
                description and license of bindings-levmar.
 
+source-repository head
+  Type: darcs
+  Location: http://code.haskell.org/levmar
+
 library
   build-depends: base >= 3 && < 4.2
                , bindings-levmar < 0.2
