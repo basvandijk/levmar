@@ -58,6 +58,7 @@ library
                  , LevMar.Intermediate
                  , TypeLevelNat
                  , SizedList
+                 , NFunction
   ghc-options: -Wall -O2
 
 executable testLevMarIntermediate
@@ -76,4 +77,5 @@ executable testLevMar
   other-modules: LevMar
                , LevMar.Intermediate
                , SizedList
+               , NFunction
   main-is: TestLevMar.hs

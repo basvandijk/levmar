@@ -5,7 +5,7 @@ module LevMar
     ( levmar
 
     , LevMar
-    , ParamFunc
+    , NFunction
     , Model
     , Jacobian
     , CovarMatrix
@@ -17,35 +17,18 @@ module LevMar
     , LMA_I.defaultOpts
     , LMA_I.StopReason(..)
     , LMA_I.Info(..)
-
-    -- TODO: The following is only needed for the test:
-    , ($*)
     )
     where
 
 import qualified LevMar.Intermediate as LMA_I
 
 import TypeLevelNat (Z, S, Nat)
-import SizedList (SizedList(..), toList, unsafeFromList)
+import SizedList    (SizedList(..), toList, unsafeFromList)
+import NFunction    (NFunction, ($*))
 
--- | @ParamFunc r n@ represents a function from @n@ @r@'s to a @r@.
--- For example: @ParamFunc Double (S (S (S Z))) ~ Double -> Double -> Double -> Double@
-type family ParamFunc r n :: *
+type Model a r n = NFunction n r (a -> r)
 
-type instance ParamFunc r Z     = r
-type instance ParamFunc r (S n) = r -> ParamFunc r n
-
--- | @f $* ps@ applies the /n/-arity function @f@ to each of the parameters in
--- the /n/-sized list @ps@.
-($*) :: ParamFunc r n -> SizedList r n -> r
-f $* Nil        = f
-f $* (p ::: ps) = f p $* ps
-
-infixr 0 $* -- same as $
-
-type Model a r n = a -> ParamFunc r n
-
-type Jacobian a r n = Model a r n
+type Jacobian a r n = NFunction n r (a -> SizedList r n)
 
 type CovarMatrix r n = SizedList (SizedList r n) n
 
@@ -61,9 +44,10 @@ type LevMar a r n =  (Model a r n)          -- model
 
 levmar :: forall n r a. (Nat n, LMA_I.LevMarable r) => LevMar a r n
 levmar model mJac params samples itMax opts mLowBs mUpBs =
-    let mkModel f = \x ps -> f x $* (unsafeFromList ps :: SizedList r n)
+    let mkModel f = \ps x ->           (f $* (unsafeFromList ps :: SizedList r n)) x
+        mkJacob f = \ps x -> toList $ ((f $* (unsafeFromList ps :: SizedList r n)) x :: SizedList r n)
         (psResult, info, covar) = LMA_I.levmar (mkModel model)
-                                               (fmap mkModel mJac)
+                                               (fmap mkJacob mJac)
                                                (toList params)
                                                samples
                                                itMax
