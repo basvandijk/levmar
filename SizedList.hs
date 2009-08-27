@@ -6,13 +6,13 @@ module SizedList
     , toList
     , fromList
     , unsafeFromList
-    , lengthSL
-    , replicateSL
+    , length
+    , replicate
     ) where
 
-import Data.Maybe (fromJust)
-
-import TypeLevelNat (Z(..), S(..), Nat, induction, witnessNat, N(..))
+import Prelude hiding (replicate, length)
+import Data.Maybe     (fromJust)
+import TypeLevelNat   (Z(..), S(..), Nat, induction, witnessNat, N(..))
 
 -- | A list which is indexed with a type-level natural that denotes the size of
 -- the list.
@@ -61,10 +61,10 @@ fromList = unFromList $ induction (witnessNat :: n)
 unsafeFromList :: forall a n. Nat n => [a] -> SizedList n a
 unsafeFromList = fromJust . fromList
 
-replicateSL :: N n -> a -> SizedList n a
-replicateSL Zero     _ = Nil
-replicateSL (Succ n) x = x ::: replicateSL n x
+replicate :: N n -> a -> SizedList n a
+replicate Zero     _ = Nil
+replicate (Succ n) x = x ::: replicate n x
 
-lengthSL :: SizedList n a -> N n
-lengthSL Nil        = Zero
-lengthSL (_ ::: xs) = Succ (lengthSL xs)
+length :: SizedList n a -> N n
+length Nil        = Zero
+length (_ ::: xs) = Succ $ length xs

@@ -1,7 +1,7 @@
 module Main where
 
 import LevMar
-import SizedList (lengthSL, replicateSL)
+import qualified SizedList as SL
 import NFunction(($*))
 import System.Random
 
@@ -28,7 +28,7 @@ test :: (Show a, Nat n)
      -> (SizedList n Double, Info Double, CovarMatrix n Double)
 test f ps xs noise = levmar f
                             Nothing
-                            (replicateSL (lengthSL ps) 0)
+                            (SL.replicate (SL.length ps) 0)
                             samples'
                             1000
                             defaultOpts
