@@ -16,7 +16,7 @@ type family NFunction n a b :: *
 type instance NFunction Z     a b = b
 type instance NFunction (S n) a b = a -> NFunction n a b
 
--- | @f $* ps@ applies the /n/-arity function @f@ to each of the arguments in
+-- | @f $* xs@ applies the /n/-arity function @f@ to each of the arguments in
 -- the /n/-sized list @xs@.
 ($*) :: NFunction n a b -> SizedList n a -> b
 f $* Nil        = f

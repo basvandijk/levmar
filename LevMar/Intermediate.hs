@@ -246,13 +246,11 @@ gen_levmar lma_der lma_dif lma_bc_der lma_bc_dif
                        | otherwise      = 4
                  in a*m + 4*n + n*m + n*n
 
-      bcError | isJust mLowBs && length lBs /= lenPs = True
-              | isJust mUpBs  && length uBs /= lenPs = True
-              | otherwise = False
+      bcError =  isJust mLowBs && length lBs /= lenPs
+              || isJust mUpBs  && length uBs /= lenPs
 
-      boxConstrained | isJust mLowBs = True
-                     | isJust mUpBs  = True
-                     | otherwise     = False
+      boxConstrained =  isJust mLowBs
+                     || isJust mUpBs
 
       withBoxConstraints f = maybeWithArray ((fmap . fmap) realToFrac mLowBs) $ \lBsPtr ->
                                maybeWithArray ((fmap . fmap) realToFrac mUpBs) $ \uBsPtr ->
