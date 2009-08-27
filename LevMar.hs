@@ -11,6 +11,8 @@ module LevMar
     , CovarMatrix
     , LecMatrix
 
+    , noLinearConstraints
+
     , Z, S, Nat
     , SizedList(..)
 
@@ -32,6 +34,13 @@ type Jacobian n r a = NFunction n r (a -> SizedList n r)
 type Matrix n m r = SizedList n (SizedList m r)
 type CovarMatrix n r = Matrix n n r
 type LecMatrix k n r = Matrix k n r
+
+-- |Value to denote the absense of any linear constraints over the
+-- parameters of the model function. This is necessary because the
+-- type parameter which contains the number of constraints can't be
+-- inferred.
+noLinearConstraints :: Nat n => Maybe (LecMatrix Z n r, SizedList Z r)
+noLinearConstraints = Nothing
 
 type LevMar n k r a =  (Model n r a)          -- model
                     -> Maybe (Jacobian n r a) -- jacobian

@@ -34,8 +34,7 @@ test f ps xs noise = levmar f
                             defaultOpts
                             Nothing
                             Nothing
-                            -- TODO: this is ugly, but otherwise 'k' is ambiguous
-                            (Nothing :: Maybe (LecMatrix Z n Double, SizedList Z Double))
+                            noLinearConstraints
                             Nothing
     where
       ns = take (length xs) $ randoms $ mkStdGen rndGenSeed
@@ -70,8 +69,7 @@ testExpFunc = levmar expFunc
                      )
                      Nothing
                      Nothing
-                     -- TODO: this is ugly, but otherwise 'k' is ambiguous
-                     (Nothing :: Maybe (LecMatrix Z n Double, SizedList Z Double))
+                     noLinearConstraints
                      Nothing
     where
       ns = take (length xs) $ randoms $ mkStdGen rndGenSeed

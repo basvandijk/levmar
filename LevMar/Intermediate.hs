@@ -90,77 +90,6 @@ convertJacobian xs f = \parPtr jPtr numPar _ _ -> do
                          pokeArray jPtr $
                            concatMap (map realToFrac . f params') xs
 
-{-
--- All smaller than
-(<*) :: Ord a => [a] -> [a] -> Bool
-xs <* ys = and $ zipWith (<) xs ys
-
-type LevMarBLecDer r a =  Model a r
-                       -> Jacobian a r
-                       -> [r]       -- initial parameters
-                       -> [(a, r)]  -- samples
-                       -> Integer   -- itmax
-                       -> Options r -- opts
-                       -> [[r]]     -- constraints matrix
-                       -> [r]       -- right hand constraints vector
-                       -> ([r], Info r, CovarMatrix r)
-
-gen_levmar_blec_der :: (Storable cr, Real cr, Fractional cr, RealFrac r)
-                   => LMA_C.LevMarBLecDer cr -> LevMarBLecDer r a
-gen_levmar_blec_der lma f j ps samples itMax opts cMat rhcVec
-    | lenSamples < lenPs + lenCMat = notEnoughSamplesError "gen_levmar_lec_der" -- TODO: mention linear constraints
-    | otherwise = unsafePerformIO $
-    withArray (map realToFrac ps) $ \psPtr ->
-      withArray (map realToFrac ys) $ \ysPtr ->
-        withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
-          withArray (map realToFrac $ concat cMat) $ \cMatPtr ->
-            withArray (map realToFrac $ rhcVec) $ \rhcVecPtr ->
-              allocaArray (workSize lenPs lenSamples) $ \workPtr ->
-                allocaArray LMA_C._LM_INFO_SZ $ \infoPtr ->
-                  allocaArray covarLen $ \covarPtr ->
-                    LMA_C.withModel (convertModel xs f) $ \modelPtr ->
-                      LMA_C.withJacobian (convertJacobian xs j) $ \jacobPtr -> do
-
-                        _ <- lma modelPtr
-                                 jacobPtr
-                                 psPtr
-                                 ysPtr
-                                 (fromIntegral lenPs)
-                                 (fromIntegral lenSamples)
-                                 cMatPtr
-                                 rhcVecPtr
-                                 (fromIntegral lenCMat)
-                                 (fromIntegral itMax)
-                                 optsPtr
-                                 infoPtr
-                                 workPtr
-                                 covarPtr
-                                 nullPtr -- adata
-
-                        result <- peekArray lenPs psPtr
-                        info   <- peekArray LMA_C._LM_INFO_SZ infoPtr
-
-                        let covarPtrEnd = plusPtr covarPtr covarLen
-                        let mkCovarMatrix ptr
-                                | ptr == covarPtrEnd = return []
-                                | otherwise = do row <- peekArray lenPs ptr
-                                                 rows <- mkCovarMatrix $ plusPtr ptr lenPs
-                                                 return (row : rows)
-
-                        covar <- mkCovarMatrix covarPtr
-
-                        return $ ( map realToFrac result
-                                 , listToInfo $ map realToFrac info
-                                 , map (map realToFrac) covar
-                                 )
-  where lenSamples   = length samples
-        lenPs        = length ps
-        lenCMat      = length cMat
-        covarLen     = lenPs * lenPs
-        (xs, ys)     = unzip samples
-        workSize n m = 2*m + 4*n + m*n + n*n
--}
-
 -------------------------------------------------------------------------------
 -- All-in-one LMA function
 -------------------------------------------------------------------------------
@@ -189,6 +118,9 @@ Preconditions:
 
      isJust mLowBs && length (fromJust mLowBs) == length ps
   && isJust mUpBs  && length (fromJust mUpBs)  == length ps
+
+
+  boxConstrained && (all $ zipWith (<=) (fromJust mLowBs) (fromJust mUpBs))
 -}
 gen_levmar :: forall cr r a. (Storable cr, Real cr, Fractional cr, RealFrac r)
            => LMA_C.LevMarDer cr
@@ -201,7 +133,7 @@ gen_levmar :: forall cr r a. (Storable cr, Real cr, Fractional cr, RealFrac r)
            -> LMA_C.LevMarBLecDif cr
            -> LevMar r a
 gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_dif
-           model mJac ps samples itMax opts mLowBs mUpBs mLinC mWghts
+           model mJac ps samples itMax opts mLowBs mUpBs mLinC mWeights
     | lenSamples < lenPs = error "gen_levmar: not enough samples"
     | otherwise = unsafePerformIO $
         withArray (map realToFrac ps) $ \psPtr ->
@@ -229,12 +161,20 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                                  let runDer :: LMA_C.LevMarDer cr -> IO CInt
                                      runDer f = runDif $ f jacobPtr
                                  in if boxConstrained
-                                    then runDer `withBoxConstraints` f_bc_der
-                                    else runDer f_der
+                                    then if linConstrained
+                                         then withBoxConstraints (withLinConstraints $ withWeights runDer) f_blec_der
+                                         else withBoxConstraints runDer f_bc_der
+                                    else if linConstrained
+                                         then withLinConstraints runDer f_lec_der
+                                         else runDer f_der
 
                    Nothing -> if boxConstrained
-                              then runDif `withBoxConstraints` f_bc_dif
-                              else runDif f_dif
+                              then if linConstrained
+                                   then withBoxConstraints (withLinConstraints $ withWeights runDif) f_blec_dif
+                                   else withBoxConstraints runDif f_bc_dif
+                              else if linConstrained
+                                   then withLinConstraints runDif f_lec_dif
+                                   else runDif f_dif
                )
 
           result <- peekArray lenPs psPtr
@@ -252,14 +192,16 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                  , map (map realToFrac) covar
                  )
     where
-      lenPs      = length ps
-      lenSamples = length samples
-      covarLen   = lenPs * lenPs
-      (xs, ys)   = unzip samples
-      (cMat, rhsVec) = fromJust mLinC
-      numConstraints = length cMat
+      lenPs             = length ps
+      lenSamples        = length samples
+      covarLen          = lenPs * lenPs
+      (xs, ys)          = unzip samples
+      (cMat, rhcVec)    = fromJust mLinC
+      numLinConstraints = length cMat
 
-      workSize = let p | linConstrained = lenPs - numConstraints
+      -- The size of the required working memory.
+      workSize :: Int
+      workSize = let p | linConstrained = lenPs - numLinConstraints
                        | otherwise      = lenPs
                      s |  linConstrained
                        && boxConstrained = lenSamples + lenPs
@@ -270,13 +212,21 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                        | otherwise           = 4
                  in a*s + 4*p + s*p + p*p
 
+      -- Whether the parameters are constrained by a linear equation.
       linConstrained = isJust mLinC
+      -- Whether the parameters are constrained by a bounding box.
       boxConstrained = isJust mLowBs || isJust mUpBs
 
       withBoxConstraints f g = maybeWithArray ((fmap . fmap) realToFrac mLowBs) $ \lBsPtr ->
                                  maybeWithArray ((fmap . fmap) realToFrac mUpBs) $ \uBsPtr ->
                                    f $ g lBsPtr uBsPtr
 
+      withLinConstraints f g = withArray (map realToFrac $ concat cMat) $ \cMatPtr ->
+                                 withArray (map realToFrac rhcVec) $ \rhcVecPtr ->
+                                   f $ g cMatPtr rhcVecPtr (fromIntegral numLinConstraints)
+
+      withWeights f g = maybeWithArray ((fmap . fmap) realToFrac mWeights) $ \weightsPtr ->
+                          f $ g weightsPtr
 
 class LevMarable r where
     levmar :: LevMar r a
