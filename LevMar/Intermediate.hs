@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module LevMar.Intermediate
     ( Model
     , Jacobian
@@ -16,6 +18,7 @@ module LevMar.Intermediate
 import Foreign.Marshal.Array (allocaArray, peekArray, pokeArray, withArray)
 import Foreign.Ptr           (Ptr, nullPtr, plusPtr)
 import Foreign.Storable      (Storable)
+import Foreign.C.Types       (CInt)
 import System.IO.Unsafe      (unsafePerformIO)
 import Data.Maybe            (fromJust, isJust)
 
@@ -24,11 +27,11 @@ import qualified Bindings.LevMar.CurryFriendly as LMA_C
 type Model    r a = [r] -> a -> r
 type Jacobian r a = [r] -> a -> [r]
 
-data Options r = Opts { opt_mu       :: r
-                      , opt_epsilon1 :: r
-                      , opt_epsilon2 :: r
-                      , opt_epsilon3 :: r
-                      , opt_delta    :: r
+data Options r = Opts { optMu       :: r
+                      , optEpsilon1 :: r
+                      , optEpsilon2 :: r
+                      , optEpsilon3 :: r
+                      , optDelta    :: r
                       } deriving Show
 
 data StopReason = SmallGradient
@@ -40,22 +43,22 @@ data StopReason = SmallGradient
                 | InvalidValues
                   deriving (Show, Enum)
 
-data Info r = Info { inf_values          :: [r]
-                   , inf_numIter         :: Integer
-                   , inf_stopReason      :: StopReason
-                   , inf_numFuncEvals    :: Integer
-                   , inf_numJacobEvals   :: Integer
-                   , inf_numLinSysSolved :: Integer
+data Info r = Info { infValues          :: [r]
+                   , infNumIter         :: Integer
+                   , infStopReason      :: StopReason
+                   , infNumFuncEvals    :: Integer
+                   , infNumJacobEvals   :: Integer
+                   , infNumLinSysSolved :: Integer
                    } deriving Show
 
 type CovarMatrix r = [[r]]
 
 defaultOpts :: Fractional r => Options r
-defaultOpts = Opts { opt_mu       = LMA_C._LM_INIT_MU
-                   , opt_epsilon1 = LMA_C._LM_STOP_THRESH
-                   , opt_epsilon2 = LMA_C._LM_STOP_THRESH
-                   , opt_epsilon3 = LMA_C._LM_STOP_THRESH
-                   , opt_delta    = LMA_C._LM_DIFF_DELTA
+defaultOpts = Opts { optMu       = LMA_C._LM_INIT_MU
+                   , optEpsilon1 = LMA_C._LM_STOP_THRESH
+                   , optEpsilon2 = LMA_C._LM_STOP_THRESH
+                   , optEpsilon3 = LMA_C._LM_STOP_THRESH
+                   , optDelta    = LMA_C._LM_DIFF_DELTA
                    }
 
 optsToList :: Options r -> [r]
@@ -63,12 +66,12 @@ optsToList (Opts mu eps1 eps2 eps3 delta) = [mu, eps1, eps2, eps3, delta]
 
 listToInfo :: RealFrac r => [r] -> Info r
 listToInfo [a,b,c,d,e,f,g,h,i,j] =
-    Info { inf_values          = [a,b,c,d,e]
-         , inf_numIter         = floor f
-         , inf_stopReason      = toEnum $ floor g - 1
-         , inf_numFuncEvals    = floor h
-         , inf_numJacobEvals   = floor i
-         , inf_numLinSysSolved = floor j
+    Info { infValues          = [a,b,c,d,e]
+         , infNumIter         = floor f
+         , infStopReason      = toEnum $ floor g - 1
+         , infNumFuncEvals    = floor h
+         , infNumJacobEvals   = floor i
+         , infNumLinSysSolved = floor j
          }
 listToInfo _ = error "liftToInfo: wrong list length"
 
@@ -168,24 +171,38 @@ maybeWithArray (Just xs) f = withArray xs f
 
 type LevMar r a =  Model r a
                 -> Maybe (Jacobian r a)
-                -> [r]       -- initial parameters
-                -> [(a, r)]  -- samples
-                -> Integer   -- itmax
-                -> Options r -- opts
-                -> Maybe [r] -- lower bounds
-                -> Maybe [r] -- upper bounds
+                -> [r]                -- initial parameters
+                -> [(a, r)]           -- samples
+                -> Integer            -- itmax
+                -> Options r          -- opts
+                -> Maybe [r]          -- lower bounds
+                -> Maybe [r]          -- upper bounds
+                -> Maybe ([[r]], [r]) -- linear constraints
+                -> Maybe [r]          -- weights
                 -> ([r], Info r, CovarMatrix r)
 
-gen_levmar :: (Storable cr, Real cr, Fractional cr, RealFrac r)
-       => LMA_C.LevMarDer cr
-       -> LMA_C.LevMarDif cr
-       -> LMA_C.LevMarBCDer cr
-       -> LMA_C.LevMarBCDif cr
-       -> LevMar r a
-gen_levmar lma_der lma_dif lma_bc_der lma_bc_dif
-           model mJac ps samples itMax opts mLowBs mUpBs
-    | lenSamples < lenPs = error "levmar: not enough samples"
-    | bcError            = error "levmar: wrong number of box constraints"
+
+{-
+
+Preconditions:
+  length samples >= length ps
+
+     isJust mLowBs && length (fromJust mLowBs) == length ps
+  && isJust mUpBs  && length (fromJust mUpBs)  == length ps
+-}
+gen_levmar :: forall cr r a. (Storable cr, Real cr, Fractional cr, RealFrac r)
+           => LMA_C.LevMarDer cr
+           -> LMA_C.LevMarDif cr
+           -> LMA_C.LevMarBCDer cr
+           -> LMA_C.LevMarBCDif cr
+           -> LMA_C.LevMarLecDer cr
+           -> LMA_C.LevMarLecDif cr
+           -> LMA_C.LevMarBLecDer cr
+           -> LMA_C.LevMarBLecDif cr
+           -> LevMar r a
+gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_dif
+           model mJac ps samples itMax opts mLowBs mUpBs mLinC mWghts
+    | lenSamples < lenPs = error "gen_levmar: not enough samples"
     | otherwise = unsafePerformIO $
         withArray (map realToFrac ps) $ \psPtr ->
         withArray (map realToFrac ys) $ \ysPtr ->
@@ -194,27 +211,30 @@ gen_levmar lma_der lma_dif lma_bc_der lma_bc_dif
         allocaArray workSize $ \workPtr ->
         allocaArray covarLen $ \covarPtr ->
         LMA_C.withModel (convertModel xs model) $ \modelPtr -> do
-          let lma f = f modelPtr
-                        psPtr
-                        ysPtr
-                        (fromIntegral lenPs)
-                        (fromIntegral lenSamples)
-                        (fromIntegral itMax)
-                        optsPtr
-                        infoPtr
-                        workPtr
-                        covarPtr
-                        nullPtr
+          let runDif :: LMA_C.LevMarDif cr -> IO CInt
+              runDif f = f modelPtr
+                           psPtr
+                           ysPtr
+                           (fromIntegral lenPs)
+                           (fromIntegral lenSamples)
+                           (fromIntegral itMax)
+                           optsPtr
+                           infoPtr
+                           workPtr
+                           covarPtr
+                           nullPtr
 
           _ <- ( case mJac of
                    Just jac -> LMA_C.withJacobian (convertJacobian xs jac) $ \jacobPtr ->
-                                 if boxConstrained
-                                 then withBoxConstraints $ \lBsPtr uBsPtr -> lma $ lma_bc_der lBsPtr uBsPtr jacobPtr
-                                 else lma $ lma_der jacobPtr
+                                 let runDer :: LMA_C.LevMarDer cr -> IO CInt
+                                     runDer f = runDif $ f jacobPtr
+                                 in if boxConstrained
+                                    then runDer `withBoxConstraints` f_bc_der
+                                    else runDer f_der
 
                    Nothing -> if boxConstrained
-                              then withBoxConstraints $ \lBsPtr uBsPtr -> lma $ lma_bc_dif lBsPtr uBsPtr
-                              else lma lma_dif
+                              then runDif `withBoxConstraints` f_bc_dif
+                              else runDif f_dif
                )
 
           result <- peekArray lenPs psPtr
@@ -227,52 +247,56 @@ gen_levmar lma_der lma_dif lma_bc_der lma_bc_dif
                                                  return (row : rows)
           covar <- mkCovarMatrix covarPtr
 
-          return $ ( map realToFrac result
-                   , listToInfo $ map realToFrac info
-                   , map (map realToFrac) covar
-                   )
+          return ( map realToFrac result
+                 , listToInfo $ map realToFrac info
+                 , map (map realToFrac) covar
+                 )
     where
       lenPs      = length ps
       lenSamples = length samples
-      lBs        = fromJust mLowBs
-      uBs        = fromJust mUpBs
       covarLen   = lenPs * lenPs
       (xs, ys)   = unzip samples
+      (cMat, rhsVec) = fromJust mLinC
+      numConstraints = length cMat
 
-      workSize = let n = lenPs
-                     m = lenSamples
-                     a | boxConstrained = 2
-                       | isJust mJac    = 2
-                       | otherwise      = 4
-                 in a*m + 4*n + n*m + n*n
+      workSize = let p | linConstrained = lenPs - numConstraints
+                       | otherwise      = lenPs
+                     s |  linConstrained
+                       && boxConstrained = lenSamples + lenPs
+                       | otherwise       = lenSamples
+                     a | isJust mJac         = 2
+                       |  not linConstrained
+                       && boxConstrained     = 2
+                       | otherwise           = 4
+                 in a*s + 4*p + s*p + p*p
 
-      bcError =  isJust mLowBs && length lBs /= lenPs
-              || isJust mUpBs  && length uBs /= lenPs
+      linConstrained = isJust mLinC
+      boxConstrained = isJust mLowBs || isJust mUpBs
 
-      boxConstrained =  isJust mLowBs
-                     || isJust mUpBs
+      withBoxConstraints f g = maybeWithArray ((fmap . fmap) realToFrac mLowBs) $ \lBsPtr ->
+                                 maybeWithArray ((fmap . fmap) realToFrac mUpBs) $ \uBsPtr ->
+                                   f $ g lBsPtr uBsPtr
 
-      withBoxConstraints f = maybeWithArray ((fmap . fmap) realToFrac mLowBs) $ \lBsPtr ->
-                               maybeWithArray ((fmap . fmap) realToFrac mUpBs) $ \uBsPtr ->
-                                 f lBsPtr uBsPtr
-
-slevmar :: LevMar Float a
-slevmar = gen_levmar LMA_C.slevmar_der
-                     LMA_C.slevmar_dif
-                     LMA_C.slevmar_bc_der
-                     LMA_C.slevmar_bc_dif
-
-dlevmar :: LevMar Double a
-dlevmar = gen_levmar LMA_C.dlevmar_der
-                     LMA_C.dlevmar_dif
-                     LMA_C.dlevmar_bc_der
-                     LMA_C.dlevmar_bc_dif
 
 class LevMarable r where
     levmar :: LevMar r a
 
 instance LevMarable Float where
-    levmar = slevmar
+    levmar = gen_levmar LMA_C.slevmar_der
+                        LMA_C.slevmar_dif
+                        LMA_C.slevmar_bc_der
+                        LMA_C.slevmar_bc_dif
+                        LMA_C.slevmar_lec_der
+                        LMA_C.slevmar_lec_dif
+                        LMA_C.slevmar_blec_der
+                        LMA_C.slevmar_blec_dif
 
 instance LevMarable Double where
-    levmar = dlevmar
+    levmar = gen_levmar LMA_C.dlevmar_der
+                        LMA_C.dlevmar_dif
+                        LMA_C.dlevmar_bc_der
+                        LMA_C.dlevmar_bc_dif
+                        LMA_C.dlevmar_lec_der
+                        LMA_C.dlevmar_lec_dif
+                        LMA_C.dlevmar_blec_der
+                        LMA_C.dlevmar_blec_dif
