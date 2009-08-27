@@ -77,4 +77,3 @@ executable testLevMar
                , LevMar.Intermediate
                , SizedList
   main-is: TestLevMar.hs
-

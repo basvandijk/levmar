@@ -1,6 +1,5 @@
 module LevMar.Intermediate
-    ( ParamFunc
-    , Model
+    ( Model
     , Jacobian
     , Options(..)
     , StopReason(..)
@@ -22,10 +21,8 @@ import Data.Maybe            (fromJust, isJust)
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
-type ParamFunc  r = [r] -> r
--- |Functional relation describing measurements.
-type Model    a r = a -> ParamFunc r
-type Jacobian a r = Model a r
+type Model    a r = [r] -> a -> r
+type Jacobian a r = [r] -> a -> [r]
 
 data Options r = Opts { opt_mu       :: r
                       , opt_epsilon1 :: r
@@ -80,11 +77,15 @@ convertModel :: (Real r, Fractional r, Storable c, Real c, Fractional c)
 convertModel xs f = \parPtr hxPtr numPar _ _ -> do
                       params <- peekArray (fromIntegral numPar) parPtr
                       pokeArray hxPtr $
-                        map (\x -> realToFrac $ f x $ map realToFrac params) xs
+                        map (realToFrac . f (map realToFrac params)) xs
 
 convertJacobian :: (Real r, Fractional r, Storable c, Real c, Fractional c)
                 => [a] -> Jacobian a r -> LMA_C.Jacobian c
-convertJacobian = convertModel
+convertJacobian xs f = \parPtr jPtr numPar _ _ -> do
+                         params <- peekArray (fromIntegral numPar) parPtr
+                         let params' = map realToFrac params
+                         pokeArray jPtr $
+                           concatMap (map realToFrac . f params') xs
 
 {-
 -- All smaller than
@@ -243,7 +244,7 @@ gen_levmar lma_der lma_dif lma_bc_der lma_bc_dif
                      a | boxConstrained = 2
                        | isJust mJac    = 2
                        | otherwise      = 4
-                 in a*m + 4*n + m*n + n*n
+                 in a*m + 4*n + n*m + n*n
 
       bcError | isJust mLowBs && length lBs /= lenPs = True
               | isJust mUpBs  && length uBs /= lenPs = True

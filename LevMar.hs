@@ -41,6 +41,8 @@ type instance ParamFunc r (S n) = r -> ParamFunc r n
 f $* Nil        = f
 f $* (p ::: ps) = f p $* ps
 
+infixr 0 $* -- same as $
+
 type Model a r n = a -> ParamFunc r n
 
 type Jacobian a r n = Model a r n
