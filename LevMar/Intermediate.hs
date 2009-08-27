@@ -20,7 +20,7 @@ import Foreign.Storable      (Storable)
 import System.IO.Unsafe      (unsafePerformIO)
 import Data.Maybe            (fromJust, isJust)
 
-import qualified LevMar.Binding.CurryFriendly as LMA_C
+import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
 type ParamFunc  r = [r] -> r
 -- |Functional relation describing measurements.

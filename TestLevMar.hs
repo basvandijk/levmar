@@ -1,10 +1,7 @@
 module Main where
 
 import LevMar
-
-import TypeLevelNat (N(..))
 import SizedList (lengthSL, replicateSL)
-
 import System.Random
 
 model_1 :: a -> r -> r

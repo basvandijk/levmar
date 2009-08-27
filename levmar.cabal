@@ -1,5 +1,5 @@
 name:          levmar
-version:       0.0.1
+version:       0.1
 cabal-version: >= 1.6
 build-type:    Simple
 stability:     experimental
@@ -9,95 +9,68 @@ copyright:     (c) 2009 Roel van Dijk & Bas van Dijk
 license:       BSD3
 license-file:  LICENSE
 category:      numerical
-synopsis:      A binding to the levmar (Levenberg-Marquardt) library
-description:   The Levenberg-Marquardt algorithm is an iterative technique that
-               finds a local minimum of a function that is expressed as the sum
-               of squares of nonlinear functions. It has become a standard
-               technique for nonlinear least-squares problems and can be thought
-               of as a combination of steepest descent and the Gauss-Newton
-               method. When the current solution is far from the correct one,
-               the algorithm behaves like a steepest descent method: slow, but
-               guaranteed to converge. When the current solution is close to the
+synopsis:      An implementation of the Levenberg-Marquardt algorithm
+description:   The Levenberg-Marquardt algorithm is an iterative
+               technique that finds a local minimum of a function that
+               is expressed as the sum of squares of nonlinear
+               functions. It has become a standard technique for
+               nonlinear least-squares problems and can be thought of
+               as a combination of steepest descent and the
+               Gauss-Newton method. When the current solution is far
+               from the correct one, the algorithm behaves like a
+               steepest descent method: slow, but guaranteed to
+               converge. When the current solution is close to the
                correct solution, it becomes a Gauss-Newton method.
                .
-               Both unconstrained and constrained (under linear equations and
-               box constraints) Levenberg-Marquardt variants are included.
-               All functions have Double and Float variants.
+               Optional box- and linear constraints can be given. Both
+               single and double precision floating point types are
+               supported.
                .
-               See: <http://www.ics.forth.gr/~lourakis/levmar/>
+               This library consists of two layers:
                .
-               This library consists of three layers:
+               * LevMar.Intermediate: A medium-level layer that wraps
+                 the low-level functions and provides a more Haskell
+                 friendly interface.
                .
-               * LevMar.Binding and LevMar.Binding.CurryFriendly: The first is a
-                 low-level layer which directly exports the C bindings. The
-                 second, as its name implies, exports the same functions as the
-                 first but with a different argument order which is nicer for
-                 currying.
-	       .
-               * LevMar.Intermediate: A medium-level layer that wraps the
-                 low-level functions and provides a more Haskell friendly
-                 interface.
+	       * LevMar: A high-level layer that uses type-level
+                 programming to add extra type safety.
                .
-	       * LevMar: A high-level layer that uses type-level programming to
-                 add extra type safety.
+               The actual algorithm is implemented in a C
+               library. See:
+               <http://www.ics.forth.gr/~lourakis/levmar/>.
+               .
+               A note regarding the license:
+               .
+               This library depends on bindings-levmar which is
+               bundled together with a C library which falls under the
+               GPL. Please be aware of this when distributing programs
+               linked with this library. For details see the
+               description and license of bindings-levmar.
 
 library
   build-depends: base >= 3 && < 4.2
-  exposed-modules: LevMar.Binding
-                 , LevMar.Binding.CurryFriendly
+               , bindings-levmar < 0.2
+  exposed-modules: LevMar
                  , LevMar.Intermediate
-                 , LevMar
                  , TypeLevelNat
                  , SizedList
   ghc-options: -Wall -O2
-  cc-options: -D_OPENMP
-  include-dirs: levmar-2.4
-  c-sources:
-    levmar-2.4/Axb.c
-    levmar-2.4/lm.c
-    levmar-2.4/lmbc.c
-    levmar-2.4/lmblec.c
-    levmar-2.4/lmlec.c
-    levmar-2.4/misc.c
-  pkgconfig-depends: lapack
 
--- executable testLevMarIntermediate
---   build-depends: base   >= 3 && < 4.2
---                , random >= 1 && < 1.2
---   ghc-options: -Wall -O2
---   cc-options: -D_OPENMP
---   other-modules: LevMar.Binding
---                , LevMar.Intermediate
---                -- , LevMar
---   include-dirs: levmar-2.4
---   c-sources:
---     levmar-2.4/Axb.c
---     levmar-2.4/lm.c
---     levmar-2.4/lmbc.c
---     levmar-2.4/lmblec.c
---     levmar-2.4/lmlec.c
---     levmar-2.4/misc.c
---   pkgconfig-depends: lapack
---   main-is: TestLevMarIntermediate.hs
+executable testLevMarIntermediate
+  build-depends: base   >= 3 && < 4.2
+               , random >= 1 && < 1.2
+               , bindings-levmar < 0.2
+  ghc-options: -Wall -O2
+  other-modules: LevMar.Intermediate
+  main-is: TestLevMarIntermediate.hs
 
 executable testLevMar
-  build-depends: base >= 3 && < 4.2, random >= 1 && < 1.2
+  build-depends: base >= 3 && < 4.2
+               , random >= 1 && < 1.2
+               , bindings-levmar < 0.2
   ghc-options: -Wall -O2
-  cc-options: -D_OPENMP
-  other-modules: LevMar.Binding
-               , LevMar.Binding.CurryFriendly
+  other-modules: LevMar
                , LevMar.Intermediate
-               , LevMar
-               , TypeLevelNat
                , SizedList
-  include-dirs: levmar-2.4
-  c-sources:
-    levmar-2.4/Axb.c
-    levmar-2.4/lm.c
-    levmar-2.4/lmbc.c
-    levmar-2.4/lmblec.c
-    levmar-2.4/lmlec.c
-    levmar-2.4/misc.c
-  pkgconfig-depends: lapack
   main-is: TestLevMar.hs
 
