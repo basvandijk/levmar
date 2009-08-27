@@ -51,14 +51,14 @@ library
                  , SizedList
   ghc-options: -Wall -O2
   cc-options: -D_OPENMP
-  include-dirs: c-levmar
+  include-dirs: levmar-2.4
   c-sources:
-    c-levmar/Axb.c
-    c-levmar/lm.c
-    c-levmar/lmbc.c
-    c-levmar/lmblec.c
-    c-levmar/lmlec.c
-    c-levmar/misc.c
+    levmar-2.4/Axb.c
+    levmar-2.4/lm.c
+    levmar-2.4/lmbc.c
+    levmar-2.4/lmblec.c
+    levmar-2.4/lmlec.c
+    levmar-2.4/misc.c
   pkgconfig-depends: lapack
 
 -- executable testLevMarIntermediate
@@ -69,14 +69,14 @@ library
 --   other-modules: LevMar.Binding
 --                , LevMar.Intermediate
 --                -- , LevMar
---   include-dirs: c-levmar
+--   include-dirs: levmar-2.4
 --   c-sources:
---     c-levmar/Axb.c
---     c-levmar/lm.c
---     c-levmar/lmbc.c
---     c-levmar/lmblec.c
---     c-levmar/lmlec.c
---     c-levmar/misc.c
+--     levmar-2.4/Axb.c
+--     levmar-2.4/lm.c
+--     levmar-2.4/lmbc.c
+--     levmar-2.4/lmblec.c
+--     levmar-2.4/lmlec.c
+--     levmar-2.4/misc.c
 --   pkgconfig-depends: lapack
 --   main-is: TestLevMarIntermediate.hs
 
@@ -90,14 +90,14 @@ executable testLevMar
                , LevMar
                , TypeLevelNat
                , SizedList
-  include-dirs: c-levmar
+  include-dirs: levmar-2.4
   c-sources:
-    c-levmar/Axb.c
-    c-levmar/lm.c
-    c-levmar/lmbc.c
-    c-levmar/lmblec.c
-    c-levmar/lmlec.c
-    c-levmar/misc.c
+    levmar-2.4/Axb.c
+    levmar-2.4/lm.c
+    levmar-2.4/lmbc.c
+    levmar-2.4/lmblec.c
+    levmar-2.4/lmlec.c
+    levmar-2.4/misc.c
   pkgconfig-depends: lapack
   main-is: TestLevMar.hs
 
