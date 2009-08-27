@@ -21,11 +21,11 @@ rndGenSeed :: Int
 rndGenSeed = 123456
 
 test :: (Show a, Nat n)
-     => (Model a Double n)
-     -> SizedList Double n
+     => (Model n Double a)
+     -> SizedList n Double
      -> [a]
      -> Double
-     -> (SizedList Double n, Info Double, CovarMatrix Double n)
+     -> (SizedList n Double, Info Double, CovarMatrix n Double)
 test f ps xs noise = levmar f
                             Nothing
                             (replicateSL (lengthSL ps) 0)

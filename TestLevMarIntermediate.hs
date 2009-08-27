@@ -27,7 +27,7 @@ rndGenSeed :: Int
 rndGenSeed = 123456
 
 test :: Show a
-     => Model a Double
+     => Model Double a
      -> [Double] -- solution
      -> [a]      -- x-values of samples
      -> Double   -- noise level

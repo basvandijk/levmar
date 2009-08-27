@@ -26,26 +26,26 @@ import TypeLevelNat (Z, S, Nat)
 import SizedList    (SizedList(..), toList, unsafeFromList)
 import NFunction    (NFunction, ($*))
 
-type Model a r n = NFunction n r (a -> r)
+type Model n r a = NFunction n r (a -> r)
 
-type Jacobian a r n = NFunction n r (a -> SizedList r n)
+type Jacobian n r a = NFunction n r (a -> SizedList n r)
 
-type CovarMatrix r n = SizedList (SizedList r n) n
+type CovarMatrix n r = SizedList n (SizedList n r)
 
-type LevMar a r n =  (Model a r n)          -- model
-                  -> Maybe (Jacobian a r n) -- jacobian
-                  -> SizedList r n          -- init params
+type LevMar n r a =  (Model n r a)          -- model
+                  -> Maybe (Jacobian n r a) -- jacobian
+                  -> SizedList n r          -- init params
                   -> [(a, r)]               -- samples
                   -> Integer                -- max iterations
                   -> LMA_I.Options r
-                  -> Maybe (SizedList r n)  -- lower bounds
-                  -> Maybe (SizedList r n)  -- upper bounds
-                  -> (SizedList r n, LMA_I.Info r, CovarMatrix r n)
+                  -> Maybe (SizedList n r)  -- lower bounds
+                  -> Maybe (SizedList n r)  -- upper bounds
+                  -> (SizedList n r, LMA_I.Info r, CovarMatrix n r)
 
-levmar :: forall n r a. (Nat n, LMA_I.LevMarable r) => LevMar a r n
+levmar :: forall n r a. (Nat n, LMA_I.LevMarable r) => LevMar n r a
 levmar model mJac params samples itMax opts mLowBs mUpBs =
-    let mkModel f = \ps x ->           (f $* (unsafeFromList ps :: SizedList r n)) x
-        mkJacob f = \ps x -> toList $ ((f $* (unsafeFromList ps :: SizedList r n)) x :: SizedList r n)
+    let mkModel f = \ps x ->           (f $* (unsafeFromList ps :: SizedList n r)) x
+        mkJacob f = \ps x -> toList $ ((f $* (unsafeFromList ps :: SizedList n r)) x :: SizedList n r)
         (psResult, info, covar) = LMA_I.levmar (mkModel model)
                                                (fmap mkJacob mJac)
                                                (toList params)

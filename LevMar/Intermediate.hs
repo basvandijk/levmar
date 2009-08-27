@@ -21,8 +21,8 @@ import Data.Maybe            (fromJust, isJust)
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
-type Model    a r = [r] -> a -> r
-type Jacobian a r = [r] -> a -> [r]
+type Model    r a = [r] -> a -> r
+type Jacobian r a = [r] -> a -> [r]
 
 data Options r = Opts { opt_mu       :: r
                       , opt_epsilon1 :: r
@@ -73,14 +73,14 @@ listToInfo [a,b,c,d,e,f,g,h,i,j] =
 listToInfo _ = error "liftToInfo: wrong list length"
 
 convertModel :: (Real r, Fractional r, Storable c, Real c, Fractional c)
-             => [a] -> Model a r -> LMA_C.Model c
+             => [a] -> Model r a -> LMA_C.Model c
 convertModel xs f = \parPtr hxPtr numPar _ _ -> do
                       params <- peekArray (fromIntegral numPar) parPtr
                       pokeArray hxPtr $
                         map (realToFrac . f (map realToFrac params)) xs
 
 convertJacobian :: (Real r, Fractional r, Storable c, Real c, Fractional c)
-                => [a] -> Jacobian a r -> LMA_C.Jacobian c
+                => [a] -> Jacobian r a -> LMA_C.Jacobian c
 convertJacobian xs f = \parPtr jPtr numPar _ _ -> do
                          params <- peekArray (fromIntegral numPar) parPtr
                          let params' = map realToFrac params
@@ -166,8 +166,8 @@ maybeWithArray :: Storable a => Maybe [a] -> (Ptr a -> IO b) -> IO b
 maybeWithArray Nothing   f = f nullPtr
 maybeWithArray (Just xs) f = withArray xs f
 
-type LevMar r a =  Model a r
-                -> Maybe (Jacobian a r)
+type LevMar r a =  Model r a
+                -> Maybe (Jacobian r a)
                 -> [r]       -- initial parameters
                 -> [(a, r)]  -- samples
                 -> Integer   -- itmax

@@ -18,7 +18,7 @@ type instance NFunction (S n) a b = a -> NFunction n a b
 
 -- | @f $* ps@ applies the /n/-arity function @f@ to each of the arguments in
 -- the /n/-sized list @xs@.
-($*) :: NFunction n a b -> SizedList a n -> b
+($*) :: NFunction n a b -> SizedList n a -> b
 f $* Nil        = f
 f $* (x ::: xs) = f x $* xs
 
