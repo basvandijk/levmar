@@ -52,26 +52,27 @@ type LevMar n k r a =  (Model n r a)          -- model
                     -> Maybe (SizedList n r)  -- upper bounds
                     -> Maybe (LecMatrix k n r, SizedList k r) -- linear constraints
                     -> Maybe (SizedList n r) -- weights
-                    -> (SizedList n r, LMA_I.Info r, CovarMatrix n r)
+                    -> Maybe (SizedList n r, LMA_I.Info r, CovarMatrix n r)
 
 levmar :: forall n k r a. (Nat n, Nat k, LMA_I.LevMarable r) => LevMar n k r a
 levmar model mJac params samples itMax opts mLowBs mUpBs mLinC mWghts =
-    let convertModel f = \ps x ->         (f $* (unsafeFromList ps :: SizedList n r)) x
-        convertJacob f = \ps x -> toList ((f $* (unsafeFromList ps :: SizedList n r)) x :: SizedList n r)
-        convertLinC (cMat, rhcVec) = ( map toList $ toList cMat
-                                     , toList rhcVec
-                                     )
-        (psResult, info, covar) = LMA_I.levmar (convertModel model)
-                                               (fmap convertJacob mJac)
-                                               (toList params)
-                                               samples
-                                               itMax
-                                               opts
-                                               (fmap toList mLowBs)
-                                               (fmap toList mUpBs)
-                                               (fmap convertLinC mLinC)
-                                               (fmap toList mWghts)
-    in ( unsafeFromList psResult
-       , info
-       , unsafeFromList $ map unsafeFromList covar
-       )
+    fmap convertResult $ LMA_I.levmar (convertModel model)
+                                      (fmap convertJacob mJac)
+                                      (toList params)
+                                      samples
+                                      itMax
+                                      opts
+                                      (fmap toList mLowBs)
+                                      (fmap toList mUpBs)
+                                      (fmap convertLinC mLinC)
+                                      (fmap toList mWghts)
+    where
+      convertModel f = \ps x ->         (f $* (unsafeFromList ps :: SizedList n r)) x
+      convertJacob f = \ps x -> toList ((f $* (unsafeFromList ps :: SizedList n r)) x :: SizedList n r)
+      convertLinC (cMat, rhcVec) = ( map toList $ toList cMat
+                                   , toList rhcVec
+                                   )
+      convertResult (psResult, info, covar) = ( unsafeFromList psResult
+                                              , info
+                                              , unsafeFromList $ map unsafeFromList covar
+                                              )

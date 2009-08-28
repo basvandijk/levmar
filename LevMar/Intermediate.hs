@@ -108,7 +108,7 @@ type LevMar r a =  Model r a
                 -> Maybe [r]          -- upper bounds
                 -> Maybe ([[r]], [r]) -- linear constraints
                 -> Maybe [r]          -- weights
-                -> ([r], Info r, CovarMatrix r)
+                -> Maybe ([r], Info r, CovarMatrix r)
 
 
 {-
@@ -134,13 +134,12 @@ gen_levmar :: forall cr r a. (Storable cr, Real cr, Fractional cr, RealFrac r)
            -> LevMar r a
 gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_dif
            model mJac ps samples itMax opts mLowBs mUpBs mLinC mWeights
-    | lenSamples < lenPs = error "gen_levmar: not enough samples"
+    | lenSamples < lenPs = Nothing
     | otherwise = unsafePerformIO $
         withArray (map realToFrac ps) $ \psPtr ->
         withArray (map realToFrac ys) $ \ysPtr ->
         withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
         allocaArray LMA_C._LM_INFO_SZ $ \infoPtr ->
-        allocaArray workSize $ \workPtr ->
         allocaArray covarLen $ \covarPtr ->
         LMA_C.withModel (convertModel xs model) $ \modelPtr -> do
           let runDif :: LMA_C.LevMarDif cr -> IO CInt
@@ -152,11 +151,11 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                            (fromIntegral itMax)
                            optsPtr
                            infoPtr
-                           workPtr
+                           nullPtr
                            covarPtr
                            nullPtr
 
-          _ <- ( case mJac of
+          r <- ( case mJac of
                    Just jac -> LMA_C.withJacobian (convertJacobian xs jac) $ \jacobPtr ->
                                  let runDer :: LMA_C.LevMarDer cr -> IO CInt
                                      runDer f = runDif $ f jacobPtr
@@ -177,40 +176,28 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                                    else runDif f_dif
                )
 
-          result <- peekArray lenPs psPtr
-          info   <- peekArray LMA_C._LM_INFO_SZ infoPtr
+          if r == LMA_C._LM_ERROR
+            then return Nothing
+            else do result <- peekArray lenPs psPtr
+                    info   <- peekArray LMA_C._LM_INFO_SZ infoPtr
 
-          let covarPtrEnd = plusPtr covarPtr covarLen
-          let mkCovarMatrix ptr | ptr == covarPtrEnd = return []
-                                | otherwise = do row <- peekArray lenPs ptr
-                                                 rows <- mkCovarMatrix $ plusPtr ptr lenPs
-                                                 return (row : rows)
-          covar <- mkCovarMatrix covarPtr
+                    let covarPtrEnd = plusPtr covarPtr covarLen
+                    let mkCovarMatrix ptr | ptr == covarPtrEnd = return []
+                                          | otherwise = do row <- peekArray lenPs ptr
+                                                           rows <- mkCovarMatrix $ plusPtr ptr lenPs
+                                                           return (row : rows)
+                    covar <- mkCovarMatrix covarPtr
 
-          return ( map realToFrac result
-                 , listToInfo $ map realToFrac info
-                 , map (map realToFrac) covar
-                 )
+                    return $ Just ( map realToFrac result
+                                  , listToInfo $ map realToFrac info
+                                  , map (map realToFrac) covar
+                                  )
     where
       lenPs             = length ps
       lenSamples        = length samples
       covarLen          = lenPs * lenPs
       (xs, ys)          = unzip samples
       (cMat, rhcVec)    = fromJust mLinC
-      numLinConstraints = length cMat
-
-      -- The size of the required working memory.
-      workSize :: Int
-      workSize = let p | linConstrained = lenPs - numLinConstraints
-                       | otherwise      = lenPs
-                     s |  linConstrained
-                       && boxConstrained = lenSamples + lenPs
-                       | otherwise       = lenSamples
-                     a | isJust mJac         = 2
-                       |  not linConstrained
-                       && boxConstrained     = 2
-                       | otherwise           = 4
-                 in a*s + 4*p + s*p + p*p
 
       -- Whether the parameters are constrained by a linear equation.
       linConstrained = isJust mLinC
@@ -223,7 +210,7 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
 
       withLinConstraints f g = withArray (map realToFrac $ concat cMat) $ \cMatPtr ->
                                  withArray (map realToFrac rhcVec) $ \rhcVecPtr ->
-                                   f $ g cMatPtr rhcVecPtr (fromIntegral numLinConstraints)
+                                   f $ g cMatPtr rhcVecPtr $ fromIntegral $ length cMat
 
       withWeights f g = maybeWithArray ((fmap . fmap) realToFrac mWeights) $ \weightsPtr ->
                           f $ g weightsPtr

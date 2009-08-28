@@ -25,7 +25,7 @@ test :: (Show a, Nat n)
      -> SizedList n Double
      -> [a]
      -> Double
-     -> (SizedList n Double, Info Double, CovarMatrix n Double)
+     -> Maybe (SizedList n Double, Info Double, CovarMatrix n Double)
 test f ps xs noise = levmar f
                             Nothing
                             (SL.replicate (SL.length ps) 0)
@@ -56,7 +56,7 @@ jacExpFunc :: Floating r => Jacobian N3 r r
 jacExpFunc a b _ x = let u = exp ((-b) * x)
                       in u ::: (-a) * x * u ::: 1.0 ::: Nil
 
-testExpFunc :: (SizedList N3 Double, Info Double, CovarMatrix N3 Double)
+testExpFunc :: Maybe (SizedList N3 Double, Info Double, CovarMatrix N3 Double)
 testExpFunc = levmar expFunc
                      (Just jacExpFunc)
                      initParams

@@ -31,7 +31,7 @@ test :: Show a
      -> [Double] -- solution
      -> [a]      -- x-values of samples
      -> Double   -- noise level
-     -> ([Double], Info Double, CovarMatrix Double)
+     -> Maybe ([Double], Info Double, CovarMatrix Double)
 test f ps xs noise = levmar f
                             Nothing
                             (replicate (length ps) 0) -- all params 0
