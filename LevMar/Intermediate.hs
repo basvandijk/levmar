@@ -13,6 +13,11 @@ module LevMar.Intermediate
     , LevMarable
     , levmar
     , LevMar
+
+    , ModelX
+    , JacobianX
+    , LevMarX
+    , levmarX
     ) where
 
 import Foreign.Marshal.Array (allocaArray, peekArray, pokeArray, withArray)
@@ -23,9 +28,6 @@ import System.IO.Unsafe      (unsafePerformIO)
 import Data.Maybe            (fromJust, isJust)
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
-
-type Model    r a = [r] -> a -> r
-type Jacobian r a = [r] -> a -> [r]
 
 data Options r = Opts { optMu       :: r
                       , optEpsilon1 :: r
@@ -76,19 +78,16 @@ listToInfo [a,b,c,d,e,f,g,h,i,j] =
 listToInfo _ = error "liftToInfo: wrong list length"
 
 convertModel :: (Real r, Fractional r, Storable c, Real c, Fractional c)
-             => [a] -> Model r a -> LMA_C.Model c
-convertModel xs f = \parPtr hxPtr numPar _ _ -> do
-                      params <- peekArray (fromIntegral numPar) parPtr
-                      pokeArray hxPtr $
-                        map (realToFrac . f (map realToFrac params)) xs
+             =>  Model r -> LMA_C.Model c
+convertModel f = \parPtr hxPtr numPar _ _ -> do
+                   params <- peekArray (fromIntegral numPar) parPtr
+                   pokeArray hxPtr $ map realToFrac $ f $ map realToFrac params
 
 convertJacobian :: (Real r, Fractional r, Storable c, Real c, Fractional c)
-                => [a] -> Jacobian r a -> LMA_C.Jacobian c
-convertJacobian xs f = \parPtr jPtr numPar _ _ -> do
-                         params <- peekArray (fromIntegral numPar) parPtr
-                         let params' = map realToFrac params
-                         pokeArray jPtr $
-                           concatMap (map realToFrac . f params') xs
+                => Jacobian r -> LMA_C.Jacobian c
+convertJacobian f = \parPtr jPtr numPar _ _ -> do
+                      params <- peekArray (fromIntegral numPar) parPtr
+                      pokeArray jPtr $ concatMap (map realToFrac) $ f $ map realToFrac params
 
 -------------------------------------------------------------------------------
 -- All-in-one LMA function
@@ -98,23 +97,25 @@ maybeWithArray :: Storable a => Maybe [a] -> (Ptr a -> IO b) -> IO b
 maybeWithArray Nothing   f = f nullPtr
 maybeWithArray (Just xs) f = withArray xs f
 
-type LevMar r a =  Model r a
-                -> Maybe (Jacobian r a)
-                -> [r]                -- initial parameters
-                -> [(a, r)]           -- samples
-                -> Integer            -- itmax
-                -> Options r          -- opts
-                -> Maybe [r]          -- lower bounds
-                -> Maybe [r]          -- upper bounds
-                -> Maybe ([[r]], [r]) -- linear constraints
-                -> Maybe [r]          -- weights
-                -> Maybe ([r], Info r, CovarMatrix r)
+type Model    r = [r] -> [r]
+type Jacobian r = [r] -> [[r]]
 
+type LevMar r =  Model r
+              -> Maybe (Jacobian r)
+              -> [r]                -- initial parameters
+              -> [r]                -- samples
+              -> Integer            -- itmax
+              -> Options r          -- opts
+              -> Maybe [r]          -- lower bounds
+              -> Maybe [r]          -- upper bounds
+              -> Maybe ([[r]], [r]) -- linear constraints
+              -> Maybe [r]          -- weights
+              -> Maybe ([r], Info r, CovarMatrix r)
 
 {-
 
 Preconditions:
-  length samples >= length ps
+  length ys >= length ps
 
      isJust mLowBs && length (fromJust mLowBs) == length ps
   && isJust mUpBs  && length (fromJust mUpBs)  == length ps
@@ -122,7 +123,7 @@ Preconditions:
 
   boxConstrained && (all $ zipWith (<=) (fromJust mLowBs) (fromJust mUpBs))
 -}
-gen_levmar :: forall cr r a. (Storable cr, Real cr, Fractional cr, RealFrac r)
+gen_levmar :: forall cr r. (Storable cr, Real cr, Fractional cr, RealFrac r)
            => LMA_C.LevMarDer cr
            -> LMA_C.LevMarDif cr
            -> LMA_C.LevMarBCDer cr
@@ -131,23 +132,23 @@ gen_levmar :: forall cr r a. (Storable cr, Real cr, Fractional cr, RealFrac r)
            -> LMA_C.LevMarLecDif cr
            -> LMA_C.LevMarBLecDer cr
            -> LMA_C.LevMarBLecDif cr
-           -> LevMar r a
+           -> LevMar r
 gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_dif
-           model mJac ps samples itMax opts mLowBs mUpBs mLinC mWeights
-    | lenSamples < lenPs = Nothing
+           model mJac ps ys itMax opts mLowBs mUpBs mLinC mWeights
+    | lenYs < lenPs = Nothing
     | otherwise = unsafePerformIO $
         withArray (map realToFrac ps) $ \psPtr ->
         withArray (map realToFrac ys) $ \ysPtr ->
         withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
         allocaArray LMA_C._LM_INFO_SZ $ \infoPtr ->
         allocaArray covarLen $ \covarPtr ->
-        LMA_C.withModel (convertModel xs model) $ \modelPtr -> do
+        LMA_C.withModel (convertModel model) $ \modelPtr -> do
           let runDif :: LMA_C.LevMarDif cr -> IO CInt
               runDif f = f modelPtr
                            psPtr
                            ysPtr
                            (fromIntegral lenPs)
-                           (fromIntegral lenSamples)
+                           (fromIntegral lenYs)
                            (fromIntegral itMax)
                            optsPtr
                            infoPtr
@@ -156,7 +157,7 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                            nullPtr
 
           r <- ( case mJac of
-                   Just jac -> LMA_C.withJacobian (convertJacobian xs jac) $ \jacobPtr ->
+                   Just jac -> LMA_C.withJacobian (convertJacobian jac) $ \jacobPtr ->
                                  let runDer :: LMA_C.LevMarDer cr -> IO CInt
                                      runDer f = runDif $ f jacobPtr
                                  in if boxConstrained
@@ -193,11 +194,10 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                                   , map (map realToFrac) covar
                                   )
     where
-      lenPs             = length ps
-      lenSamples        = length samples
-      covarLen          = lenPs * lenPs
-      (xs, ys)          = unzip samples
-      (cMat, rhcVec)    = fromJust mLinC
+      lenPs          = length ps
+      lenYs          = length ys
+      covarLen       = lenPs * lenPs
+      (cMat, rhcVec) = fromJust mLinC
 
       -- Whether the parameters are constrained by a linear equation.
       linConstrained = isJust mLinC
@@ -216,7 +216,7 @@ gen_levmar f_der f_dif f_bc_der f_bc_dif f_lec_der f_lec_dif f_blec_der f_blec_d
                           f $ g weightsPtr
 
 class LevMarable r where
-    levmar :: LevMar r a
+    levmar :: LevMar r
 
 instance LevMarable Float where
     levmar = gen_levmar LMA_C.slevmar_der
@@ -237,3 +237,34 @@ instance LevMarable Double where
                         LMA_C.dlevmar_lec_dif
                         LMA_C.dlevmar_blec_der
                         LMA_C.dlevmar_blec_dif
+
+--------------------------------------------------------------------------------
+
+type ModelX    r a = [r] -> a -> r
+type JacobianX r a = [r] -> a -> [r]
+
+type LevMarX r a =  ModelX r a
+                 -> Maybe (JacobianX r a)
+                 -> [r]                -- initial parameters
+                 -> [(a, r)]           -- samples
+                 -> Integer            -- itmax
+                 -> Options r          -- opts
+                 -> Maybe [r]          -- lower bounds
+                 -> Maybe [r]          -- upper bounds
+                 -> Maybe ([[r]], [r]) -- linear constraints
+                 -> Maybe [r]          -- weights
+                 -> Maybe ([r], Info r, CovarMatrix r)
+
+levmarX :: LevMarable r => LevMarX r a
+levmarX modelX mJacX ps samples =
+    levmar (convertModelX xs modelX) (fmap (convertJacobianX xs) mJacX) ps ys
+        where
+          (xs, ys) = unzip samples
+
+convertModelX :: [a] -> ModelX r a -> Model r
+convertModelX xs modelX = \ps -> map (modelX ps) xs
+
+convertJacobianX :: [a] -> JacobianX r a -> Jacobian r
+convertJacobianX xs jacX = \ps -> map (jacX ps) xs
+
+--------------------------------------------------------------------------------
