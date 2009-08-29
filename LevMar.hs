@@ -27,11 +27,11 @@ module LevMar
 
 import qualified LevMar.Intermediate as LMA_I
 
-import TypeLevelNat (Z, S, Nat)
+import TypeLevelNat (Z, S, Nat, witnessNat)
 import SizedList    (SizedList(..), toList, unsafeFromList)
-import NFunction    (NFunction, ($*))
+import NFunction    (NFunction, ($*), ComposeN, compose)
 
-levmar :: forall n k r a. (Nat n, Nat k, LMA_I.LevMarable r)
+levmar :: forall n k r a. (Nat n, ComposeN n, Nat k, LMA_I.LevMarable r)
        => (Model n r a)                          -- model
        -> Maybe (Jacobian n r a)                 -- jacobian
        -> SizedList n r                          -- init params
@@ -43,27 +43,20 @@ levmar :: forall n k r a. (Nat n, Nat k, LMA_I.LevMarable r)
        -> Maybe (LecMatrix k n r, SizedList k r) -- linear constraints
        -> Maybe (SizedList n r)                  -- weights
        -> Maybe (SizedList n r, LMA_I.Info r, CovarMatrix n r)
-levmar model mJac params samples itMax opts mLowBs mUpBs mLinC mWghts =
-    fmap convertResult $ LMA_I.levmar (convertModel model)
-                                      (fmap convertJacob mJac)
-                                      (toList params)
-                                      samples
-                                      itMax
-                                      opts
-                                      (fmap toList mLowBs)
-                                      (fmap toList mUpBs)
-                                      (fmap convertLinC mLinC)
-                                      (fmap toList mWghts)
+levmar model mJac params samples = levmar' (convertModel model)
+                                           (fmap convertJacob mJac)
+                                           params
+                                           ys
     where
-      convertModel f = \ps x ->         (f $* (unsafeFromList ps :: SizedList n r)) x
-      convertJacob f = \ps x -> toList ((f $* (unsafeFromList ps :: SizedList n r)) x :: SizedList n r)
-      convertLinC (cMat, rhcVec) = ( map toList $ toList cMat
-                                   , toList rhcVec
-                                   )
-      convertResult (psResult, info, covar) = ( unsafeFromList psResult
-                                              , info
-                                              , unsafeFromList $ map unsafeFromList covar
-                                              )
+      (xs, ys) = unzip samples
+
+      convertModel :: Model n r a -> Model' n r
+      convertModel = compose (witnessNat :: n) (undefined :: r)
+                             (\(f :: a -> r) -> map f xs)
+
+      convertJacob :: Jacobian n r a -> Jacobian' n r
+      convertJacob = compose (witnessNat :: n) (undefined :: r)
+                             (\(f :: a -> SizedList n r) -> map f xs)
 
 type Model    n r a = NFunction n r (a -> r)
 type Jacobian n r a = NFunction n r (a -> SizedList n r)
