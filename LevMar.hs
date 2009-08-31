@@ -19,6 +19,7 @@ module LevMar
     , LMA_I.Info(..)
     , noLinearConstraints
     , CovarMatrix
+    , LinearConstraints
     , LecMatrix
 
       -- *Type-level stuff
@@ -78,7 +79,7 @@ levmar :: forall n k r a. (Nat n, ComposeN n, Nat k, LMA_I.LevMarable r)
        -> LMA_I.Options r                        -- ^Options
        -> Maybe (SizedList n r)                  -- ^Lower bounds
        -> Maybe (SizedList n r)                  -- ^Upper bounds
-       -> Maybe (LecMatrix k n r, SizedList k r) -- ^Linear constraints
+       -> Maybe (LinearConstraints k n r) -- ^Linear constraints
        -> Maybe (SizedList n r)                  -- ^Weights
        -> Maybe (SizedList n r, LMA_I.Info r, CovarMatrix n r)
 levmar model mJac params samples = levmar' (convertModel model)
@@ -139,7 +140,9 @@ levmar' model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
 -------------------------------------------------------------------------------
 
 type CovarMatrix n r = Matrix n n r
-type LecMatrix k n r = Matrix k n r
+
+type LinearConstraints k n r = (LecMatrix k n r, SizedList k r)
+type LecMatrix         k n r = Matrix k n r
 
 type Matrix n m r = SizedList n (SizedList m r)
 
