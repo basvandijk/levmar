@@ -68,6 +68,7 @@ executable testLevMarIntermediate
   ghc-options: -Wall -O2
   other-modules: LevMar.Intermediate
   main-is: TestLevMarIntermediate.hs
+  buildable: False
 
 executable testLevMar
   build-depends: base >= 3 && < 4.2
@@ -79,3 +80,4 @@ executable testLevMar
                , SizedList
                , NFunction
   main-is: TestLevMar.hs
+  buildable: False

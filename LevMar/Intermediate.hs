@@ -41,8 +41,8 @@ levmar :: LevMarable r
        -> Maybe [r]          -- weights
        -> Maybe ([r], Info r, CovarMatrix r)
 levmar model mJac ps samples =
-    levmar' (\ps -> map (model ps) xs)
-            (fmap (\jac -> \ps -> map (jac ps) xs) mJac)
+    levmar' (\ps' -> map (model ps') xs)
+            (fmap (\jac -> \ps' -> map (jac ps') xs) mJac)
             ps
             ys
         where
