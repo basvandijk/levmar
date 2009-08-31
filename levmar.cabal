@@ -46,6 +46,7 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                GPL. Please be aware of this when distributing programs
                linked with this library. For details see the
                description and license of bindings-levmar.
+extra-source-files: Demo.hs
 
 source-repository head
   Type: darcs
