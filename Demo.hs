@@ -265,6 +265,7 @@ run_helval = levmar' helval
 --------------------------------------------------------------------------------
 -- Boggs - Tolle problem 3 (linearly constrained),
 -- minimum at (-0.76744, 0.25581, 0.62791, -0.11628, 0.25581)
+--
 -- constr1: p0 + 3 * p1      = 0
 -- constr2: p2 + p3 - 2 * p4 = 0
 -- constr3: p1 - p4          = 0
@@ -319,6 +320,7 @@ run_bt3 = levmar' bt3
 --------------------------------------------------------------------------------
 -- Hock - Schittkowski problem 28 (linearly constrained),
 -- minimum at (0.5, -0.5, 0.5)
+--
 -- constr1: p0 + 2 * p1 + 3 * p2 = 1
 
 hs28 :: Model' N3 Double
@@ -362,6 +364,7 @@ run_hs28 = levmar' hs28
 --------------------------------------------------------------------------------
 -- Hock - Schittkowski problem 48 (linearly constrained),
 -- minimum at (1.0, 1.0, 1.0, 1.0, 1.0)
+--
 -- constr1: sum [p0, p1, p2, p3, p4] = 5
 -- constr2: p2 - 2 * (p3 + p4)       = -3
 
@@ -412,6 +415,7 @@ run_hs48 = levmar' hs48
 --------------------------------------------------------------------------------
 -- Hock - Schittkowski problem 51 (linearly constrained),
 -- minimum at (1.0, 1.0, 1.0, 1.0, 1.0)
+--
 -- constr1: p0 + 3 * p1      = 4
 -- constr2: p2 + p3 - 2 * p4 = 0
 -- constr3: p1 - p4          = 0
@@ -466,6 +470,7 @@ run_hs51 = levmar' hs51
 --------------------------------------------------------------------------------
 -- Hock - Schittkowski problem 01 (box constrained),
 -- minimum at (1.0, 1.0)
+--
 -- constr1: p1 >= -1.5
 
 hs01 :: Model' N2 Double
@@ -501,20 +506,184 @@ run_hs01 = levmar' hs01
                    Nothing
 
 --------------------------------------------------------------------------------
+-- Hock - Schittkowski MODIFIED problem 21 (box constrained),
+-- minimum at (2.0, 0.0)
+--
+-- constr1: 2 <= p0 <=50
+-- constr2: -50 <= p1 <=50
+--
+-- Original HS21 has the additional constraint 10*p0 - p1 >= 10
+-- which is inactive at the solution, so it is dropped here.
 
--- hs21
+hs21 :: Model' N2 Double
+hs21 p0 p1 = [p0 / 10.0, p1]
+
+hs21_jac :: Jacobian' N2 Double
+hs21_jac p0 p1 = [ 0.1 ::: 0.0 ::: Nil
+                 , 0.0 ::: 1.0 ::: Nil
+                 ]
+
+hs21_n = 2
+
+hs21_params = -1.0 ::: -1.0 ::: Nil
+
+hs21_samples = replicate hs21_n 0.0
+
+hs21_lb = 2.0  ::: -50.0 ::: Nil
+hs21_ub = 50.0 :::  50.0 ::: Nil
+
+run_hs21 = levmar' hs21
+                   (Just hs21_jac)
+                   hs21_params
+                   hs21_samples
+                   1000
+                   opts
+                   (Just hs21_lb)
+                   (Just hs21_ub)
+                   noLinearConstraints
+                   Nothing
 
 --------------------------------------------------------------------------------
+-- Problem hatfldb (box constrained),
+-- minimum at (0.947214, 0.8, 0.64, 0.4096)
+--
+-- constri: pi >= 0.0 (i=1..4)
+-- constr5: p1 <= 0.8
 
--- hatfldb
+hatfldb :: Model' N4 Double
+hatfldb p0 p1 p2 p3 = [ p0 - 1.0
+                      , p0 - sqrt p1
+                      , p1 - sqrt p2
+                      , p2 - sqrt p3
+                      ]
+
+hatfldb_jac :: Jacobian' N4 Double
+hatfldb_jac p0 p1 p2 p3 = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0            ::: Nil
+                          , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0            ::: Nil
+                          , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0            ::: Nil
+                          , 0.0 ::: 0.0            ::: 1.0            ::: -0.5 / sqrt p3 ::: Nil
+                          ]
+
+hatfldb_n = 4
+
+hatfldb_params = 0.1 ::: 0.1 ::: 0.1 ::: 0.1 ::: Nil
+
+hatfldb_samples = replicate hatfldb_n 0.0
+
+hatfldb_lb = 0.0      ::: 0.0 ::: 0.0      ::: 0.0      ::: Nil
+hatfldb_ub = _DBL_MAX ::: 0.8 ::: _DBL_MAX ::: _DBL_MAX ::: Nil
+
+run_hatfldb = levmar' hatfldb
+                      (Just hatfldb_jac)
+                      hatfldb_params
+                      hatfldb_samples
+                      1000
+                      opts
+                      (Just hatfldb_lb)
+                      (Just hatfldb_ub)
+                      noLinearConstraints
+                      Nothing
 
 --------------------------------------------------------------------------------
+-- Problem hatfldc (box constrained),
+-- minimum at (1.0, 1.0, 1.0, 1.0)
+--
+-- constri:   pi >= 0.0  (i=1..4)
+-- constri+4: pi <= 10.0 (i=1..4)
 
--- hatfldc
+hatfldc :: Model' N4 Double
+hatfldc p0 p1 p2 p3 = [ p0 - 1.0
+                      , p0 - sqrt p1
+                      , p1 - sqrt p2
+                      , p3 - 1.0
+                      ]
+
+hatfldc_jac :: Jacobian' N4 Double
+hatfldc_jac p0 p1 p2 p3 = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil
+                          , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil
+                          , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil
+                          , 0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil
+                          ]
+
+hatfldc_n = 4
+
+hatfldc_params = 0.9 ::: 0.9 ::: 0.9 ::: 0.9 ::: Nil
+
+hatfldc_samples = replicate hatfldc_n 0.0
+
+hatfldc_lb =  0.0 :::  0.0 :::  0.0 :::  0.0 ::: Nil
+hatfldc_ub = 10.0 ::: 10.0 ::: 10.0 ::: 10.0 ::: Nil
+
+run_hatfldc = levmar' hatfldc
+                      (Just hatfldc_jac)
+                      hatfldc_params
+                      hatfldc_samples
+                      1000
+                      opts
+                      (Just hatfldc_lb)
+                      (Just hatfldc_ub)
+                      noLinearConstraints
+                      Nothing
 
 --------------------------------------------------------------------------------
+-- Hock - Schittkowski (modified) problem 52 (box/linearly constrained),
+-- minimum at (-0.09, 0.03, 0.25, -0.19, 0.03)
+--
+-- constr1: p[0] + 3*p[1] = 0;
+-- constr2: p[2] +   p[3] - 2*p[4] = 0;
+-- constr3: p[1] -   p[4] = 0;
+--
+-- To the above 3 constraints, we add the following 5:
+-- constr4: -0.09 <= p[0];
+-- constr5:   0.0 <= p[1] <= 0.3;
+-- constr6:          p[2] <= 0.25;
+-- constr7:  -0.2 <= p[3] <= 0.3;
+-- constr8:   0.0 <= p[4] <= 0.3;
 
--- modhs52
+modhs52 :: Model' N5 Double
+modhs52 p0 p1 p2 p3 p4 = [ 4.0 * p0 - p1
+                         , p1 + p2 - 2.0
+                         , p3 - 1.0
+                         , p4 - 1.0
+                         ]
+
+modhs52_jac :: Jacobian' N5 Double
+modhs52_jac p0 p1 p2 p3 p4 = [ 4.0 ::: -1.0 ::: 0.0 ::: 0.0 ::: 0.0 ::: Nil
+                             , 0.0 :::  1.0 ::: 1.0 ::: 0.0 ::: 0.0 ::: Nil
+                             , 0.0 :::  0.0 ::: 0.0 ::: 1.0 ::: 0.0 ::: Nil
+                             , 0.0 :::  0.0 ::: 0.0 ::: 0.0 ::: 1.0 ::: Nil
+                             ]
+
+modhs52_n = 4
+
+modhs52_params = 2.0 ::: 2.0 ::: 2.0 ::: 2.0 ::: 2.0 ::: Nil
+
+modhs52_samples = replicate modhs52_n 0.0
+
+modhs52_lb = -0.09    ::: 0.0 ::: -_DBL_MAX ::: -0.2 ::: 0.0 ::: Nil
+modhs52_ub = _DBL_MAX ::: 0.3 ::: 0.25      :::  0.3 ::: 0.3 ::: Nil
+
+modhs52_linear_constraints :: LinearConstraints N3 N5 Double
+modhs52_linear_constraints = (     (1.0 ::: 3.0 ::: 0.0 ::: 0.0 :::  0.0 ::: Nil)
+                               ::: (0.0 ::: 0.0 ::: 1.0 ::: 1.0 ::: -2.0 ::: Nil)
+                               ::: (0.0 ::: 1.0 ::: 0.0 ::: 0.0 ::: -1.0 ::: Nil)
+                               ::: Nil
+                             , 0.0 ::: 0.0 ::: 0.0 ::: Nil
+                             )
+
+modhs52_weights = 2000.0 ::: 2000.0 ::: 2000.0 ::: 2000.0 ::: 2000.0 ::: Nil
+
+run_modhs52 = levmar' modhs52
+                      (Just modhs52_jac)
+                      modhs52_params
+                      modhs52_samples
+                      1000
+                      opts
+                      (Just modhs52_lb)
+                      (Just modhs52_ub)
+                      (Just modhs52_linear_constraints)
+                      (Just modhs52_weights)
+
 
 --------------------------------------------------------------------------------
 
