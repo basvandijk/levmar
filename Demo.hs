@@ -46,15 +46,15 @@ opts = defaultOpts { optEpsilon1 = 1e-15
 -- global minimum at (1, 1)
 
 ros :: Model' N2 Double
-ros p0 p1 = replicate ros_n ((1.0 - p0)**2 + ros_d * m**2)
+ros p0 p1 = replicate ros_n ((1.0 - p0)**2 + ros_d*m**2)
     where
       m = p1 - p0**2
 
 ros_jac :: Jacobian' N2 Double
 ros_jac p0 p1 = replicate ros_n (p0d ::: p1d ::: Nil)
     where
-      p0d = -2 + 2 * p0 - 4 * ros_d * m * p0
-      p1d = 2 * ros_d * m
+      p0d = -2 + 2*p0 - 4*ros_d*m*p0
+      p1d = 2*ros_d*m
       m   = p1 - p0**2
 
 ros_d :: Double
@@ -86,15 +86,15 @@ run_ros = levmar' ros
 -- global minimum at (1, 1)
 
 modros :: Model' N2 Double
-modros p0 p1 = [ 10 * (p1 - p0**2)
+modros p0 p1 = [ 10*(p1 - p0**2)
                , 1.0 - p0
                , modros_lam
                ]
 
 modros_jac :: Jacobian' N2 Double
-modros_jac p0 _ = [ -20 * p0 ::: 10.0 ::: Nil
-                  , -1.0     ::: 0.0  ::: Nil
-                  , 0.0      ::: 0.0  ::: Nil
+modros_jac p0 _ = [ -20*p0 ::: 10.0 ::: Nil
+                  , -1.0   ::: 0.0  ::: Nil
+                  , 0.0    ::: 0.0  ::: Nil
                   ]
 
 modros_lam :: Double
@@ -127,14 +127,14 @@ run_modros = levmar' modros
 
 powell :: Model' N2 Double
 powell p0 p1 = [ p0
-               , 10.0 * p0 / m + 2 * p1**2
+               , 10.0*p0 / m + 2*p1**2
                ]
     where
       m = p0 + 0.1
 
 powell_jac :: Jacobian' N2 Double
-powell_jac p0 p1 = [ 1.0       ::: 0.0      ::: Nil
-                   , 1.0 / m**2 ::: 4.0 * p1 ::: Nil
+powell_jac p0 p1 = [ 1.0        ::: 0.0    ::: Nil
+                   , 1.0 / m**2 ::: 4.0*p1 ::: Nil
                    ]
     where
       m = p0 + 0.1
@@ -165,11 +165,11 @@ run_powell = levmar' powell
 -- minimum at (1, 1, 1, 1)
 
 wood :: Model' N4 Double
-wood p0 p1 p2 p3 = [ 10.0 * (p1 - p0**2)
+wood p0 p1 p2 p3 = [ 10.0*(p1 - p0**2)
                    , 1.0 - p0
-                   , sqrt 90.0 * (p3 - p2**2)
+                   , sqrt 90.0*(p3 - p2**2)
                    , 1.0 - p2
-                   , sqrt 10.0 * (p1 + p3 - 2.0)
+                   , sqrt 10.0*(p1 + p3 - 2.0)
                    , (p1 - p3) / sqrt 10.0
                    ]
 
@@ -199,18 +199,18 @@ run_wood = levmar' wood
 -- minimum at (2.48, 6.18, 3.45)
 
 meyer :: Model N3 Double Double
-meyer p0 p1 p2 x = p0 * exp (10.0 * p1 / (ui + p2) - 13.0)
+meyer p0 p1 p2 x = p0*exp (10.0*p1 / (ui + p2) - 13.0)
     where
-      ui = 0.45 + 0.05 * x
+      ui = 0.45 + 0.05*x
 
 meyer_jac :: Jacobian N3 Double Double
 meyer_jac p0 p1 p2 x =     tmp
-                       ::: 10.0 * p0 * tmp / (ui + p2)
-                       ::: -10.0 * p0 * p1 * tmp / ((ui + p2) * (ui + p2))
+                       ::: 10.0*p0*tmp / (ui + p2)
+                       ::: -10.0*p0*p1*tmp / ((ui + p2)*(ui + p2))
                        ::: Nil
     where
-      tmp = exp (10.0 * p1 / (ui + p2) - 13.0)
-      ui = 0.45 + 0.05 * x
+      tmp = exp (10.0*p1 / (ui + p2) - 13.0)
+      ui = 0.45 + 0.05*x
 
 meyer_n :: Int
 meyer_n = 16
@@ -266,12 +266,12 @@ run_meyer = levmar meyer
 -- minimum at (1.0, 0.0, 0.0)
 
 helval :: Model'  N3 Double
-helval p0 p1 p2 = [ 10.0 * (p2 - 10.0 * theta)
-                  , 10.0 * sqrt tmp - 1.0
+helval p0 p1 p2 = [ 10.0*(p2 - 10.0*theta)
+                  , 10.0*sqrt tmp - 1.0
                   , p2
                   ]
     where
-      m = atan (p1 / p0) / (2.0 * pi)
+      m = atan (p1 / p0) / (2.0*pi)
 
       tmp = p0**2 + p1**2
 
@@ -281,9 +281,9 @@ helval p0 p1 p2 = [ 10.0 * (p2 - 10.0 * theta)
             | otherwise = -0.25
 
 heval_jac :: Jacobian' N3 Double
-heval_jac p0 p1 _ = [ 50.0 * p1 / (pi * tmp) ::: -50.0 * p0 / (pi * tmp) ::: 10.0 ::: Nil
-                    , 10.0 * p0 / sqrt tmp   :::  10.0 * p1 / sqrt tmp   ::: 0.0  ::: Nil
-                    , 0.0                    ::: 0.0                     ::: 1.0  ::: Nil
+heval_jac p0 p1 _ = [ 50.0*p1 / (pi*tmp) ::: -50.0*p0 / (pi*tmp) ::: 10.0 ::: Nil
+                    , 10.0*p0 / sqrt tmp :::  10.0*p1 / sqrt tmp ::: 0.0  ::: Nil
+                    , 0.0                ::: 0.0                 ::: 1.0  ::: Nil
                     ]
     where
       tmp = p0**2 + p1**2
@@ -313,8 +313,8 @@ run_helval = levmar' helval
 -- Boggs - Tolle problem 3 (linearly constrained),
 -- minimum at (-0.76744, 0.25581, 0.62791, -0.11628, 0.25581)
 --
--- constr1: p0 + 3 * p1      = 0
--- constr2: p2 + p3 - 2 * p4 = 0
+-- constr1: p0 + 3*p1      = 0
+-- constr2: p2 + p3 - 2*p4 = 0
 -- constr3: p1 - p4          = 0
 
 bt3 :: Model' N5 Double
@@ -326,11 +326,11 @@ bt3 p0 p1 p2 p3 p4 = replicate bt3_n (t1**2 + t2**2 + t3**2 + t4**2)
       t4 = p4 - 1.0
 
 bt3_jac :: Jacobian' N5 Double
-bt3_jac p0 p1 p2 p3 p4 = replicate bt3_n (   2.0 * t1
-                                         ::: 2.0 * (t2 - t1)
-                                         ::: 2.0 * t2
-                                         ::: 2.0 * t3
-                                         ::: 2.0 * t4
+bt3_jac p0 p1 p2 p3 p4 = replicate bt3_n (   2.0*t1
+                                         ::: 2.0*(t2 - t1)
+                                         ::: 2.0*t2
+                                         ::: 2.0*t3
+                                         ::: 2.0*t4
                                          ::: Nil
                                          )
     where
@@ -372,7 +372,7 @@ run_bt3 = levmar' bt3
 -- Hock - Schittkowski problem 28 (linearly constrained),
 -- minimum at (0.5, -0.5, 0.5)
 --
--- constr1: p0 + 2 * p1 + 3 * p2 = 1
+-- constr1: p0 + 2*p1 + 3*p2 = 1
 
 hs28 :: Model' N3 Double
 hs28 p0 p1 p2 = replicate hs28_n (t1**2 + t2**2)
@@ -381,9 +381,9 @@ hs28 p0 p1 p2 = replicate hs28_n (t1**2 + t2**2)
       t2 = p1 + p2
 
 hs28_jac :: Jacobian' N3 Double
-hs28_jac p0 p1 p2 = replicate hs28_n (     2.0 * t1
-                                       ::: 2.0 * (t1 + t2)
-                                       ::: 2.0 * t2
+hs28_jac p0 p1 p2 = replicate hs28_n (     2.0*t1
+                                       ::: 2.0*(t1 + t2)
+                                       ::: 2.0*t2
                                        ::: Nil
                                      )
     where
@@ -421,7 +421,7 @@ run_hs28 = levmar' hs28
 -- minimum at (1.0, 1.0, 1.0, 1.0, 1.0)
 --
 -- constr1: sum [p0, p1, p2, p3, p4] = 5
--- constr2: p2 - 2 * (p3 + p4)       = -3
+-- constr2: p2 - 2*(p3 + p4)       = -3
 
 hs48 :: Model' N5 Double
 hs48 p0 p1 p2 p3 p4 = replicate hs48_n (t1**2 + t2**2 + t3**2)
@@ -431,11 +431,11 @@ hs48 p0 p1 p2 p3 p4 = replicate hs48_n (t1**2 + t2**2 + t3**2)
       t3 = p3 - p4
 
 hs48_jac :: Jacobian' N5 Double
-hs48_jac p0 p1 p2 p3 p4 = replicate hs48_n (     2.0 * t1
-                                             ::: 2.0 * t2
-                                             ::: 2.0 * t2
-                                             ::: 2.0 * t3
-                                             ::: 2.0 * t3
+hs48_jac p0 p1 p2 p3 p4 = replicate hs48_n (     2.0*t1
+                                             ::: 2.0*t2
+                                             ::: 2.0*t2
+                                             ::: 2.0*t3
+                                             ::: 2.0*t3
                                              ::: Nil
                                            )
     where
@@ -475,8 +475,8 @@ run_hs48 = levmar' hs48
 -- Hock - Schittkowski problem 51 (linearly constrained),
 -- minimum at (1.0, 1.0, 1.0, 1.0, 1.0)
 --
--- constr1: p0 + 3 * p1      = 4
--- constr2: p2 + p3 - 2 * p4 = 0
+-- constr1: p0 + 3*p1      = 4
+-- constr2: p2 + p3 - 2*p4 = 0
 -- constr3: p1 - p4          = 0
 
 hs51 :: Model' N5 Double
@@ -488,11 +488,11 @@ hs51 p0 p1 p2 p3 p4 = replicate hs51_n (t1**2 + t2**2 + t3**2 + t4**2)
       t4 = p4 - 1.0
 
 hs51_jac :: Jacobian' N5 Double
-hs51_jac p0 p1 p2 p3 p4 = replicate hs51_n (     2.0 * t1
-                                             ::: 2.0 * (t2 - t1)
-                                             ::: 2.0 * t2
-                                             ::: 2.0 * t3
-                                             ::: 2.0 * t4
+hs51_jac p0 p1 p2 p3 p4 = replicate hs51_n (     2.0*t1
+                                             ::: 2.0*(t2 - t1)
+                                             ::: 2.0*t2
+                                             ::: 2.0*t3
+                                             ::: 2.0*t4
                                              ::: Nil
                                            )
     where
@@ -537,14 +537,14 @@ run_hs51 = levmar' hs51
 -- constr1: p1 >= -1.5
 
 hs01 :: Model' N2 Double
-hs01 p0 p1 = [ 10.0 * (p1 - p0**2)
+hs01 p0 p1 = [ 10.0*(p1 - p0**2)
              , 1.0 - p0
              ]
 
 hs01_jac :: Jacobian' N2 Double
-hs01_jac p0 p1 = [ -20.0 * p0 ::: 10.0 ::: Nil
-                 , -1.0       ::: 0.0  ::: Nil
-                 ]
+hs01_jac p0 _ = [ -20.0*p0 ::: 10.0 ::: Nil
+                , -1.0     ::: 0.0  ::: Nil
+                ]
 
 hs01_n :: Int
 hs01_n = 2
@@ -725,7 +725,7 @@ run_hatfldc = levmar' hatfldc
 -- constr8:   0.0 <= p4 <= 0.3
 
 modhs52 :: Model' N5 Double
-modhs52 p0 p1 p2 p3 p4 = [ 4.0 * p0 - p1
+modhs52 p0 p1 p2 p3 p4 = [ 4.0*p0 - p1
                          , p1 + p2 - 2.0
                          , p3 - 1.0
                          , p4 - 1.0
@@ -785,18 +785,18 @@ run_modhs52 = levmar' modhs52
 -- constr1: p0 + p2 = -1.0;
 --
 -- To the above constraint, we add the following 2:
--- constr2: p1 - 4 * p2 = 0
+-- constr2: p1 - 4*p2 = 0
 -- constr3: 0.1 <= p1 <= 2.9
 -- constr4: 0.7 <= p2
 
 mods235 :: Model' N3 Double
-mods235 p0 p1 _ = [ 0.1 * (p0 - 1.0)
+mods235 p0 p1 _ = [ 0.1*(p0 - 1.0)
                   , p1 - p0**2
                   ]
 
 mods235_jac :: Jacobian' N3 Double
-mods235_jac p0 _ _ = [ 0.1       ::: 0.0 ::: 0.0 ::: Nil
-                     , -2.0 * p0 ::: 1.0 ::: 0.0 ::: Nil
+mods235_jac p0 _ _ = [ 0.1     ::: 0.0 ::: 0.0 ::: Nil
+                     , -2.0*p0 ::: 1.0 ::: 0.0 ::: Nil
                      ]
 
 mods235_n :: Int
@@ -854,15 +854,15 @@ run_mods235 = levmar' mods235
 --    x[1]<=0.7;
 
 modbt7 :: Model' N5 Double
-modbt7 p0 p1 _ _ _ = replicate modbt7_n (100.0 * m**2 + n**2)
+modbt7 p0 p1 _ _ _ = replicate modbt7_n (100.0*m**2 + n**2)
     where
       m = p1 - p0**2
       n = p0 - 1.0
 
 modbt7_jac :: Jacobian' N5 Double
 modbt7_jac p0 p1 _ _ _ = replicate modbt7_n
-                         (    -400.0 * m * p0 + 2.0 * p0 - 2.0
-                           ::: 200.0 * m
+                         (    -400.0*m*p0 + 2.0*p0 - 2.0
+                           ::: 200.0*m
                            ::: 0.0
                            ::: 0.0
                            ::: 0.0
@@ -920,21 +920,21 @@ run_modbt7 = levmar' modbt7
 
 combust :: Model' N5 Double
 combust p0 p1 p2 p3 p4 =
-    [ p0 * p1 + p0 - 3 * p4
-    , 2 * p0 * p1 + p0 + 3 * r10 * p1 * p1 + p1 * p2 * p2 + r7 * p1 * p2 + r9 * p1 * p3 + r8 * p1 - r * p4
-    , 2 * p1 * p2 * p2 + r7 * p1 * p2 + 2 * r5 * p2 * p2 + r6 * p2-8 * p4
-    , r9 * p1 * p3 + 2 * p3 * p3 - 4 * r * p4
-    , p0 * p1 + p0 + r10 * p1 * p1 + p1 * p2 * p2 + r7 * p1 * p2 + r9 * p1 * p3 + r8 * p1 + r5 * p2 * p2 + r6 * p2 + p3 * p3 - 1.0
+    [ p0*p1 + p0 - 3*p4
+    , 2*p0*p1 + p0 + 3*r10*p1*p1 + p1*p2*p2 + r7*p1*p2 + r9*p1*p3 + r8*p1 - r*p4
+    , 2*p1*p2*p2 + r7*p1*p2 + 2*r5*p2*p2 + r6*p2-8*p4
+    , r9*p1*p3 + 2*p3*p3 - 4*r*p4
+    , p0*p1 + p0 + r10*p1*p1 + p1*p2*p2 + r7*p1*p2 + r9*p1*p3 + r8*p1 + r5*p2*p2 + r6*p2 + p3*p3 - 1.0
     ]
 
 r, r5, r6, r7, r8, r9, r10 :: Double
 r   = 10
 r5  = 0.193
-r6  = 4.10622 * 1e-4
-r7  = 5.45177 * 1e-4
-r8  = 4.4975  * 1e-7
-r9  = 3.40735 * 1e-5
-r10 = 9.615   * 1e-7
+r6  = 4.10622*1e-4
+r7  = 5.45177*1e-4
+r8  = 4.4975 *1e-7
+r9  = 3.40735*1e-5
+r10 = 9.615  *1e-7
 
 combust_jac :: Jacobian' N5 Double
 combust_jac p0 p1 p2 p3 _ =
@@ -944,28 +944,28 @@ combust_jac p0 p1 p2 p3 _ =
       ::: 0.0
       ::: -3
       ::: Nil
-    ,     2 * p1 + 1
-      ::: 2 * p0 + 6 * r10 * p1 + p2 * p2 + r7 * p2 + r9 * p3 + r8
-      ::: 2 * p1 * p2 + r7 * p1
-      ::: r9 * p1
+    ,     2*p1 + 1
+      ::: 2*p0 + 6*r10*p1 + p2*p2 + r7*p2 + r9*p3 + r8
+      ::: 2*p1*p2 + r7*p1
+      ::: r9*p1
       ::: -r
       ::: Nil
     ,     0.0
-      ::: 2 * p2 * p2 + r7 * p2
-      ::: 4 * p1 * p2 + r7 * p1 + 4 * r5 * p2 + r6
+      ::: 2*p2*p2 + r7*p2
+      ::: 4*p1*p2 + r7*p1 + 4*r5*p2 + r6
       ::: 0.0
       ::: -8
       ::: Nil
     ,     0.0
-      ::: r9 * p3
+      ::: r9*p3
       ::: 0.0
-      ::: r9 * p1 + 4 * p3
-      ::: -4 * r
+      ::: r9*p1 + 4*p3
+      ::: -4*r
       ::: Nil
     ,     p1 + 1
-      ::: p0 + 2 * r10 * p1 + p2 * p2 + r7 * p2 + r9 * p3 + r8
-      ::: 2 * p1 * p2 + r7 * p1 + 2 * r5 * p2 + r6
-      ::: r9 * p1 + 2 * p3
+      ::: p0 + 2*r10*p1 + p2*p2 + r7*p2 + r9*p3 + r8
+      ::: 2*p1*p2 + r7*p1 + 2*r5*p2 + r6
+      ::: r9*p1 + 2*p3
       ::: 0.0
       ::: Nil
     ]
