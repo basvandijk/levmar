@@ -18,6 +18,7 @@ module LevMar
     , LMA_I.StopReason(..)
     , LMA_I.Info(..)
     , noLinearConstraints
+    , LMA_I.LevMarError(..)
     , CovarMatrix
     , LinearConstraints
     , Matrix
@@ -35,6 +36,8 @@ import qualified LevMar.Intermediate as LMA_I
 import TypeLevelNat (Z, S, Nat, witnessNat)
 import SizedList    (SizedList(..), toList, unsafeFromList)
 import NFunction    (NFunction, ($*), ComposeN, compose)
+
+import Data.Either
 
 -------------------------------------------------------------------------------
 
@@ -81,7 +84,7 @@ levmar :: forall n k r a. (Nat n, ComposeN n, Nat k, LMA_I.LevMarable r)
        -> Maybe (SizedList n r)                  -- ^Upper bounds
        -> Maybe (LinearConstraints k n r)        -- ^Linear constraints
        -> Maybe (SizedList n r)                  -- ^Weights
-       -> Maybe (SizedList n r, LMA_I.Info r, CovarMatrix n r)
+       -> Either LMA_I.LevMarError (SizedList n r, LMA_I.Info r, CovarMatrix n r)
 levmar model mJac params samples = levmar' (convertModel model)
                                            (fmap convertJacob mJac)
                                            params
@@ -113,7 +116,7 @@ levmar' :: forall n k r. (Nat n, Nat k, LMA_I.LevMarable r)
         -> Maybe (SizedList n r)                  -- ^Upper bounds
         -> Maybe (LinearConstraints k n r)        -- ^Linear constraints
         -> Maybe (SizedList n r)                  -- ^Weights
-        -> Maybe (SizedList n r, LMA_I.Info r, CovarMatrix n r)
+        -> Either LMA_I.LevMarError (SizedList n r, LMA_I.Info r, CovarMatrix n r)
 
 levmar' model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
     fmap convertResult $ LMA_I.levmar' (convertModel model)
@@ -152,3 +155,4 @@ type Matrix n m r = SizedList n (SizedList m r)
 noLinearConstraints :: Nat n => Maybe (LinearConstraints Z n r)
 noLinearConstraints = Nothing
 
+-------------------------------------------------------------------------------

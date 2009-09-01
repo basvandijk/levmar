@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module LevMar.Intermediate
     ( levmar
@@ -11,6 +12,7 @@ module LevMar.Intermediate
     , Info(..)
     , StopReason(..)
     , CovarMatrix
+    , LevMarError(..)
 
     , LevMarable
     , levmar'
@@ -24,7 +26,7 @@ import Foreign.Ptr           (Ptr, nullPtr, plusPtr)
 import Foreign.Storable      (Storable)
 import Foreign.C.Types       (CInt)
 import System.IO.Unsafe      (unsafePerformIO)
-import Data.Maybe            (fromJust, isJust)
+import Data.Maybe            (fromJust, fromMaybe, isJust)
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
@@ -39,7 +41,7 @@ levmar :: LevMarable r
        -> Maybe [r]          -- upper bounds
        -> Maybe ([[r]], [r]) -- linear constraints
        -> Maybe [r]          -- weights
-       -> Maybe ([r], Info r, CovarMatrix r)
+       -> Either LevMarError ([r], Info r, CovarMatrix r)
 levmar model mJac ps samples =
     levmar' (\ps' -> map (model ps') xs)
             (fmap (\jac -> \ps' -> map (jac ps') xs) mJac)
@@ -111,7 +113,40 @@ type LevMar r =  Model' r
               -> Maybe [r]          -- upper bounds
               -> Maybe ([[r]], [r]) -- linear constraints
               -> Maybe [r]          -- weights
-              -> Maybe ([r], Info r, CovarMatrix r)
+              -> Either LevMarError ([r], Info r, CovarMatrix r)
+
+data LevMarError = LapackError
+                 | NoJacobian
+                 | NoBoxConstraints
+                 | FailedBoxCheck
+                 | MemoryAllocationFailure
+                 | ConstraintMatrixRowsGtCols
+                 | ConstraintMatrixNotFullRowRank
+                 | TooFewMeasurements
+                 | SingularMatrixError
+                 | SumOfSquaresNotFinite
+                   deriving Show
+
+instance Functor (Either LevMarError) where
+    fmap f (Right x)  = Right $ f x
+    fmap _ (Left err) = Left err
+
+levmarCErrorToLevMarError :: [(CInt, LevMarError)]
+levmarCErrorToLevMarError = [ (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
+                            , (LMA_C._LM_ERROR_NO_JACOBIAN,                         NoJacobian)
+                            , (LMA_C._LM_ERROR_NO_BOX_CONSTRAINTS,                  NoBoxConstraints)
+                            , (LMA_C._LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
+                            , (LMA_C._LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
+                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
+                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
+                            , (LMA_C._LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
+                            , (LMA_C._LM_ERROR_SINGULAR_MATRIX,                     SingularMatrixError)
+                            , (LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           SumOfSquaresNotFinite)
+                            ]
+
+convertLevMarError :: CInt -> LevMarError
+convertLevMarError err = fromMaybe (error "Unknown levmar error") $
+                         lookup err levmarCErrorToLevMarError
 
 type Model' r = [r] -> [r]
 
@@ -168,9 +203,7 @@ gen_levmar f_der
            f_blec_der
            f_blec_dif
            model mJac ps ys itMax opts mLowBs mUpBs mLinC mWeights
-    | not linConstrained && lenYs < lenPs           = Nothing
-    | linConstrained     && lenYs < lenPs - lenCMat = Nothing
-    | otherwise = unsafePerformIO $
+    = unsafePerformIO $
         withArray (map realToFrac ps) $ \psPtr ->
         withArray (map realToFrac ys) $ \ysPtr ->
         withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
@@ -210,8 +243,8 @@ gen_levmar f_der
                                  then withLinConstraints runDif f_lec_dif
                                  else runDif f_dif
 
-          if r == LMA_C._LM_ERROR
-            then return Nothing
+          if r < 0
+            then return $ Left $ convertLevMarError r
             else do result <- peekArray lenPs psPtr
                     info   <- peekArray LMA_C._LM_INFO_SZ infoPtr
 
@@ -224,14 +257,13 @@ gen_levmar f_der
 
                     covar  <- convertCovarMatrix covarPtr
 
-                    return $ Just ( map realToFrac result
-                                  , listToInfo $ map realToFrac info
-                                  , map (map realToFrac) covar
-                                  )
+                    return $ Right ( map realToFrac result
+                                   , listToInfo $ map realToFrac info
+                                   , map (map realToFrac) covar
+                                   )
     where
       lenPs          = length ps
       lenYs          = length ys
-      lenCMat        = length cMat
       covarLen       = lenPs * lenPs
       (cMat, rhcVec) = fromJust mLinC
 
@@ -247,7 +279,7 @@ gen_levmar f_der
 
       withLinConstraints f g = withArray (map realToFrac $ concat cMat) $ \cMatPtr ->
                                  withArray (map realToFrac rhcVec) $ \rhcVecPtr ->
-                                   f $ g cMatPtr rhcVecPtr $ fromIntegral $ lenCMat
+                                   f $ g cMatPtr rhcVecPtr $ fromIntegral $ length cMat
 
       withWeights f g = maybeWithArray ((fmap . fmap) realToFrac mWeights) $ \weightsPtr ->
                           f $ g weightsPtr

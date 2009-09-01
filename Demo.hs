@@ -896,10 +896,9 @@ run_modbt7 = levmar' modbt7
                       (Just modbt7_linear_constraints)
                       Nothing
 
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
--- !! TODO: This prints a few warning messages and then returns with:
--- !! infStopReason = MaxIterations
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !! TODO: This returns with: infStopReason = MaxIterations !!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 --------------------------------------------------------------------------------
 -- Equilibrium combustion problem, constrained nonlinear equation from the book
