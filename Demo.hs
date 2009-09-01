@@ -774,10 +774,6 @@ run_modhs52 = levmar' modhs52
                       (Just modhs52_linear_constraints)
                       (Just modhs52_weights)
 
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
--- !! TODO: This returns Nothing !
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 --------------------------------------------------------------------------------
 -- Schittkowski (modified) problem 235 (box/linearly constrained),
 -- minimum at (-1.725, 2.9, 0.725)
@@ -830,10 +826,6 @@ run_mods235 = levmar' mods235
                       (Just mods235_ub)
                       (Just mods235_linear_constraints)
                       Nothing
-
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
--- !! TODO: This returns Nothing !
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 --------------------------------------------------------------------------------
 -- Boggs and Tolle modified problem 7 (box/linearly constrained),
@@ -980,8 +972,8 @@ combust_samples :: [Double]
 combust_samples = replicate combust_n 0.0
 
 combust_lb, combust_ub :: SizedList N5 Double
-combust_lb = 0.0001 ::: 0.0001 ::: 0.0001 ::: 0.0001 ::: 0.0001 ::: Nil
-combust_ub = 100.0  ::: 100.0  ::: 100.0  ::: 100.0  ::: 100.0  ::: Nil
+combust_lb =   0.0001 :::   0.0001 :::   0.0001 :::   0.0001 :::   0.0001 ::: Nil
+combust_ub = 100.0    ::: 100.0    ::: 100.0    ::: 100.0    ::: 100.0    ::: Nil
 
 run_combust :: Result N5
 run_combust = levmar' combust

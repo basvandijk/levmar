@@ -168,7 +168,8 @@ gen_levmar f_der
            f_blec_der
            f_blec_dif
            model mJac ps ys itMax opts mLowBs mUpBs mLinC mWeights
-    | lenYs < lenPs = Nothing
+    | not linConstrained && lenYs < lenPs           = Nothing
+    | linConstrained     && lenYs < lenPs - lenCMat = Nothing
     | otherwise = unsafePerformIO $
         withArray (map realToFrac ps) $ \psPtr ->
         withArray (map realToFrac ys) $ \ysPtr ->
@@ -230,6 +231,7 @@ gen_levmar f_der
     where
       lenPs          = length ps
       lenYs          = length ys
+      lenCMat        = length cMat
       covarLen       = lenPs * lenPs
       (cMat, rhcVec) = fromJust mLinC
 
@@ -245,7 +247,7 @@ gen_levmar f_der
 
       withLinConstraints f g = withArray (map realToFrac $ concat cMat) $ \cMatPtr ->
                                  withArray (map realToFrac rhcVec) $ \rhcVecPtr ->
-                                   f $ g cMatPtr rhcVecPtr $ fromIntegral $ length cMat
+                                   f $ g cMatPtr rhcVecPtr $ fromIntegral $ lenCMat
 
       withWeights f g = maybeWithArray ((fmap . fmap) realToFrac mWeights) $ \weightsPtr ->
                           f $ g weightsPtr
