@@ -17,10 +17,11 @@ module LevMar
     , LMA_I.defaultOpts
     , LMA_I.StopReason(..)
     , LMA_I.Info(..)
-    , noLinearConstraints
+    , LMA_I.LevMarable
     , LMA_I.LevMarError(..)
     , CovarMatrix
     , LinearConstraints
+    , noLinearConstraints
     , Matrix
 
       -- *Type-level stuff
