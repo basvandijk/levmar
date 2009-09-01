@@ -27,6 +27,7 @@ import Foreign.Storable      (Storable)
 import Foreign.C.Types       (CInt)
 import System.IO.Unsafe      (unsafePerformIO)
 import Data.Maybe            (fromJust, fromMaybe, isJust)
+import Control.Monad.Instances -- for 'instance Functor (Either a)'
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
@@ -126,10 +127,6 @@ data LevMarError = LapackError
                  | SingularMatrixError
                  | SumOfSquaresNotFinite
                    deriving Show
-
-instance Functor (Either LevMarError) where
-    fmap f (Right x)  = Right $ f x
-    fmap _ (Left err) = Left err
 
 levmarCErrorToLevMarError :: [(CInt, LevMarError)]
 levmarCErrorToLevMarError = [ (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)

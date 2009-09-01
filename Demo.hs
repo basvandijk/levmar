@@ -11,16 +11,19 @@ import LevMar ( levmar', levmar
 
               , LinearConstraints, noLinearConstraints
 
+              , LevMarError
+
               , Info, CovarMatrix
 
               , S, Z
               , SizedList(..)
               )
 
-type Result n = Maybe ( SizedList n Double
-                      , Info Double
-                      , CovarMatrix n Double
-                      )
+type Result n = Either LevMarError
+                       ( SizedList n Double
+                       , Info Double
+                       , CovarMatrix n Double
+                       )
 
 --------------------------------------------------------------------------------
 -- Handy type synonyms for type-level naturals:
