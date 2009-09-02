@@ -1,11 +1,11 @@
 -- Thanks to Ryan Ingram who wrote most of this module.
 -- See: http://www.haskell.org/pipermail/haskell-cafe/2009-August/065674.html
 
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module TypeLevelNat
     ( Z(..)
@@ -17,6 +17,7 @@ module TypeLevelNat
 
     , N(..)
     ) where
+
 
 data Z = Z
 newtype S n = S n
@@ -60,3 +61,24 @@ witnessNat = theWitness
 data N n where
     Zero :: N Z
     Succ :: N n -> N (S n)
+
+{-
+Template Haskell code to construct a type synonym for an arbitrary
+type level natural number.
+
+Instead of
+
+> type N6 = S (S (S (S (S (S Z)))))
+
+you can write
+
+> $(mkNat "N6" 6)
+-}
+
+-- import Language.Haskell.TH.Syntax
+
+-- mkNat :: String -> Int -> Q [Dec]
+-- mkNat syn = runQ . return . (:[]) . TySynD (mkName syn) [] . go
+--     where go 0 = ConT $ mkName "Z"
+--           go n = AppT (ConT $ mkName "S") $ go (n - 1)
+

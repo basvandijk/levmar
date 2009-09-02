@@ -61,24 +61,3 @@ library
                  , SizedList
                  , NFunction
   ghc-options: -Wall -O2
-
-executable testLevMarIntermediate
-  build-depends: base   >= 3 && < 4.2
-               , random >= 1 && < 1.2
-               , bindings-levmar < 0.2
-  ghc-options: -Wall -O2
-  other-modules: LevMar.Intermediate
-  main-is: TestLevMarIntermediate.hs
-  buildable: False
-
-executable testLevMar
-  build-depends: base >= 3 && < 4.2
-               , random >= 1 && < 1.2
-               , bindings-levmar < 0.2
-  ghc-options: -Wall -O2
-  other-modules: LevMar
-               , LevMar.Intermediate
-               , SizedList
-               , NFunction
-  main-is: TestLevMar.hs
-  buildable: False
