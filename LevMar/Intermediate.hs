@@ -76,7 +76,7 @@ Preconditions:
 
   boxConstrained && (all $ zipWith (<=) (fromJust mLowBs) (fromJust mUpBs))
 -}
-gen_levmar :: forall cr r. (Storable cr, Real cr, Fractional cr, RealFrac r)
+gen_levmar :: forall cr r. (Storable cr, RealFrac cr, Real r, Fractional r)
            => LMA_C.LevMarDer cr
            -> LMA_C.LevMarDif cr
            -> LMA_C.LevMarBCDer cr
@@ -162,7 +162,7 @@ gen_levmar f_der
                     covar  <- convertCovarMatrix covarPtr
 
                     return $ Right ( map realToFrac result
-                                   , listToInfo $ map realToFrac info
+                                   , listToInfo info
                                    , map (map realToFrac) covar
                                    )
     where
@@ -233,9 +233,9 @@ data Info r = Info { infValues          :: [r]
                    , infNumLinSysSolved :: Integer
                    } deriving Show
 
-listToInfo :: RealFrac r => [r] -> Info r
+listToInfo :: (RealFrac cr, Fractional r) => [cr] -> Info r
 listToInfo [a,b,c,d,e,f,g,h,i,j] =
-    Info { infValues          = [a,b,c,d,e]
+    Info { infValues          = map realToFrac [a,b,c,d,e]
          , infNumIter         = floor f
          , infStopReason      = toEnum $ floor g - 1
          , infNumFuncEvals    = floor h
