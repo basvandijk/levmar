@@ -11,7 +11,7 @@ module SizedList
     ) where
 
 import Prelude hiding (replicate, length)
-import Data.Maybe     (fromJust)
+import Data.Maybe     (fromMaybe)
 import TypeLevelNat   (Z(..), S(..), Nat, induction, witnessNat, N(..))
 
 -- | A list which is indexed with a type-level natural that denotes the size of
@@ -34,6 +34,7 @@ instance Show a => Show (SizedList n a) where
 
 newtype ToList a n = ToList { unToList :: SizedList n a -> [a] }
 
+-- | Convert a @SizedList@ to a normal list.
 toList :: forall a n. Nat n => SizedList n a -> [a]
 toList = unToList $ induction (witnessNat :: n)
                               (ToList tl0)
@@ -47,6 +48,8 @@ toList = unToList $ induction (witnessNat :: n)
 
 newtype FromList a n = FromList { unFromList :: [a] -> Maybe (SizedList n a) }
 
+-- | Convert a normal list to a @SizeList@. If the length of the given
+-- list does not equal @n@, @Nothing@ is returned.
 fromList :: forall a n. Nat n => [a] -> Maybe (SizedList n a)
 fromList = unFromList $ induction (witnessNat :: n)
                                   (FromList fl0)
@@ -58,8 +61,11 @@ fromList = unFromList $ induction (witnessNat :: n)
       flS _ []     = Nothing
       flS k (x:xs) = fmap (x :::) $ k xs
 
+-- | Convert a normal list to a @SizeList@. If the length of the given
+-- list does not equal @n@, an error is thrown.
 unsafeFromList :: forall a n. Nat n => [a] -> SizedList n a
-unsafeFromList = fromJust . fromList
+unsafeFromList = fromMaybe (error "unsafeFromList xs: xs does not have the right length ") .
+                 fromList
 
 replicate :: N n -> a -> SizedList n a
 replicate Zero     _ = Nil

@@ -19,37 +19,48 @@ module TypeLevelNat
     ) where
 
 
-data Z = Z
-newtype S n = S n
+data    Z   = Z   deriving Show
+newtype S n = S n deriving Show
 
 class Nat n where
+   -- | Case analysis on natural numbers.
    caseNat :: forall r.
-              n
-           -> (n ~ Z => r)
-           -> (forall p. (n ~ S p, Nat p) => p -> r)
+              n                                      -- ^ The natural number to case analyse.
+           -> (n ~ Z => r)                           -- ^ The result @r@ when @n@ equals zero.
+           -> (forall p. (n ~ S p, Nat p) => p -> r) -- ^ Function to apply to the predecessor
+                                                     --   of @n@ to yield the result @r@.
            -> r
 
 instance Nat Z where
    caseNat _ z _ = z
 
-instance Nat n => Nat (S n) where
-   caseNat (S n) _ s = s n
+instance Nat p => Nat (S p) where
+   caseNat (S p) _ s = s p
 
+-- | The axiom of induction on natural numbers.
+-- See: <http://en.wikipedia.org/wiki/Mathematical_induction#Axiom_of_induction>
 induction :: forall p n. Nat n
           => n
           -> p Z
-          -> (forall x. Nat x => p x -> p (S x))
+          -> (forall m. Nat m => p m -> p (S m))
           -> p n
 induction n z s = caseNat n isZ isS
     where
       isZ :: n ~ Z => p n
       isZ = z
 
-      isS :: forall x. (n ~ S x, Nat x) => x -> p n
-      isS x = s (induction x z s)
+      isS :: forall m. (n ~ S m, Nat m) => m -> p n
+      isS m = s (induction m z s)
 
 newtype Witness x = Witness { unWitness :: x }
 
+-- | The value of @witnessNat :: n@ is the natural number of type @n@.
+-- For example:
+--
+-- @
+-- *TypeLevelNat> witnessNat :: S (S (S Z))
+-- S (S (S Z))
+-- @
 witnessNat :: forall n. Nat n => n
 witnessNat = theWitness
     where

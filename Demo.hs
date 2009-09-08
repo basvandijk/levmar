@@ -2,10 +2,10 @@
 
 module Demo where
 
-import LevMar ( levmar', levmar
+import LevMar ( levmar
 
-              , Model', Model
-              , Jacobian', Jacobian
+              , Model
+              , Jacobian
 
               , Options(..), defaultOpts
 
@@ -18,6 +18,8 @@ import LevMar ( levmar', levmar
               , S, Z
               , SizedList(..)
               )
+
+import qualified LevMar.Fitting as Fitting
 
 type Result n = Either LevMarError
                        ( SizedList n Double
@@ -48,12 +50,12 @@ opts = defaultOpts { optEpsilon1 = 1e-15
 -- Rosenbrock function,
 -- global minimum at (1, 1)
 
-ros :: Model' N2 Double
+ros :: Model N2 Double
 ros p0 p1 = replicate ros_n ((1.0 - p0)**2 + ros_d*m**2)
     where
       m = p1 - p0**2
 
-ros_jac :: Jacobian' N2 Double
+ros_jac :: Jacobian N2 Double
 ros_jac p0 p1 = replicate ros_n (p0d ::: p1d ::: Nil)
     where
       p0d = -2 + 2*p0 - 4*ros_d*m*p0
@@ -73,16 +75,16 @@ ros_samples :: [Double]
 ros_samples = replicate ros_n 0.0
 
 run_ros :: Result N2
-run_ros = levmar' ros
-                  (Just ros_jac)
-                  ros_params
-                  ros_samples
-                  1000
-                  opts
-                  Nothing
-                  Nothing
-                  noLinearConstraints
-                  Nothing
+run_ros = levmar ros
+                 (Just ros_jac)
+                 ros_params
+                 ros_samples
+                 1000
+                 opts
+                 Nothing
+                 Nothing
+                 noLinearConstraints
+                 Nothing
 
 {- run_ros =>
 Right ( 0.9439745509911915 ::: 0.8908311893490423 ::: Nil
@@ -108,13 +110,13 @@ Right ( 0.9439745509911915 ::: 0.8908311893490423 ::: Nil
 -- Modified Rosenbrock problem,
 -- global minimum at (1, 1)
 
-modros :: Model' N2 Double
+modros :: Model N2 Double
 modros p0 p1 = [ 10*(p1 - p0**2)
                , 1.0 - p0
                , modros_lam
                ]
 
-modros_jac :: Jacobian' N2 Double
+modros_jac :: Jacobian N2 Double
 modros_jac p0 _ = [ -20*p0 ::: 10.0 ::: Nil
                   , -1.0   ::: 0.0  ::: Nil
                   , 0.0    ::: 0.0  ::: Nil
@@ -133,16 +135,16 @@ modros_samples :: [Double]
 modros_samples = replicate modros_n 0.0
 
 run_modros :: Result N2
-run_modros = levmar' modros
-                     (Just modros_jac)
-                     modros_params
-                     modros_samples
-                     1000
-                     opts
-                     Nothing
-                     Nothing
-                     noLinearConstraints
-                     Nothing
+run_modros = levmar modros
+                    (Just modros_jac)
+                    modros_params
+                    modros_samples
+                    1000
+                    opts
+                    Nothing
+                    Nothing
+                    noLinearConstraints
+                    Nothing
 
 {- run_modros =>
 Right ( 0.999999200793784 ::: 0.99999839572234 ::: Nil
@@ -168,14 +170,14 @@ Right ( 0.999999200793784 ::: 0.99999839572234 ::: Nil
 -- Powell's function,
 -- minimum at (0, 0)
 
-powell :: Model' N2 Double
+powell :: Model N2 Double
 powell p0 p1 = [ p0
                , 10.0*p0 / m + 2*p1**2
                ]
     where
       m = p0 + 0.1
 
-powell_jac :: Jacobian' N2 Double
+powell_jac :: Jacobian N2 Double
 powell_jac p0 p1 = [ 1.0        ::: 0.0    ::: Nil
                    , 1.0 / m**2 ::: 4.0*p1 ::: Nil
                    ]
@@ -192,16 +194,16 @@ powell_samples :: [Double]
 powell_samples = replicate powell_n 0.0
 
 run_powell :: Result N2
-run_powell = levmar' powell
-                     (Just powell_jac)
-                     powell_params
-                     powell_samples
-                     1000
-                     opts
-                     Nothing
-                     Nothing
-                     noLinearConstraints
-                     Nothing
+run_powell = levmar powell
+                    (Just powell_jac)
+                    powell_params
+                    powell_samples
+                    1000
+                    opts
+                    Nothing
+                    Nothing
+                    noLinearConstraints
+                    Nothing
 
 {- run_powell =>
 Right ( -8.768525913529536e-11 ::: -6.631546508520969e-5 ::: Nil
@@ -227,7 +229,7 @@ Right ( -8.768525913529536e-11 ::: -6.631546508520969e-5 ::: Nil
 -- Wood's function,
 -- minimum at (1, 1, 1, 1)
 
-wood :: Model' N4 Double
+wood :: Model N4 Double
 wood p0 p1 p2 p3 = [ 10.0*(p1 - p0**2)
                    , 1.0 - p0
                    , sqrt 90.0*(p3 - p2**2)
@@ -246,16 +248,16 @@ wood_samples :: [Double]
 wood_samples = replicate wood_n 0.0
 
 run_wood :: Result N4
-run_wood = levmar' wood
-                   Nothing
-                   wood_params
-                   wood_samples
-                   1000
-                   opts
-                   Nothing
-                   Nothing
-                   noLinearConstraints
-                   Nothing
+run_wood = levmar wood
+                  Nothing
+                  wood_params
+                  wood_samples
+                  1000
+                  opts
+                  Nothing
+                  Nothing
+                  noLinearConstraints
+                  Nothing
 
 {- run_wood =>
 Right ( 0.9999999999991299 ::: 0.999999999998257 ::: 1.0000000000008702 ::: 1.0000000000017433 ::: Nil
@@ -283,12 +285,12 @@ Right ( 0.9999999999991299 ::: 0.999999999998257 ::: 1.0000000000008702 ::: 1.00
 -- Meyer's (reformulated) data fitting problem,
 -- minimum at (2.48, 6.18, 3.45)
 
-meyer :: Model N3 Double Double
+meyer :: Fitting.Model N3 Double Double
 meyer p0 p1 p2 x = p0*exp (10.0*p1 / (ui + p2) - 13.0)
     where
       ui = 0.45 + 0.05*x
 
-meyer_jac :: Jacobian N3 Double Double
+meyer_jac :: Fitting.Jacobian N3 Double Double
 meyer_jac p0 p1 p2 x =     tmp
                        ::: 10.0*p0*tmp / (ui + p2)
                        ::: -10.0*p0*p1*tmp / ((ui + p2)*(ui + p2))
@@ -323,16 +325,16 @@ meyer_samples =  zip [0..] [ 34.780
                            ]
 
 run_meyer_jac :: Result N3
-run_meyer_jac = levmar meyer
-                       (Just meyer_jac)
-                       meyer_params
-                       meyer_samples
-                       1000
-                       opts
-                       Nothing
-                       Nothing
-                       noLinearConstraints
-                       Nothing
+run_meyer_jac = Fitting.levmar meyer
+                               (Just meyer_jac)
+                               meyer_params
+                               meyer_samples
+                               1000
+                               opts
+                               Nothing
+                               Nothing
+                               noLinearConstraints
+                               Nothing
 
 {- run_meyer_jac =>
 Right ( 2.4817783023532543 ::: 6.18134634518888 ::: 3.5022363458721086 ::: Nil
@@ -356,16 +358,16 @@ Right ( 2.4817783023532543 ::: 6.18134634518888 ::: 3.5022363458721086 ::: Nil
 -}
 
 run_meyer :: Result N3
-run_meyer = levmar meyer
-                   Nothing
-                   meyer_params
-                   meyer_samples
-                   1000
-                   opts
-                   Nothing
-                   Nothing
-                   noLinearConstraints
-                   Nothing
+run_meyer = Fitting.levmar meyer
+                           Nothing
+                           meyer_params
+                           meyer_samples
+                           1000
+                           opts
+                           Nothing
+                           Nothing
+                           noLinearConstraints
+                           Nothing
 
 {- run_meyer =>
 Right ( 2.481778352780817 ::: 6.181346326650312 ::: 3.5022363391220463 ::: Nil
@@ -392,7 +394,7 @@ Right ( 2.481778352780817 ::: 6.181346326650312 ::: 3.5022363391220463 ::: Nil
 -- helical valley function,
 -- minimum at (1.0, 0.0, 0.0)
 
-helval :: Model'  N3 Double
+helval :: Model  N3 Double
 helval p0 p1 p2 = [ 10.0*(p2 - 10.0*theta)
                   , 10.0*sqrt tmp - 1.0
                   , p2
@@ -407,7 +409,7 @@ helval p0 p1 p2 = [ 10.0*(p2 - 10.0*theta)
             | p1 >= 0   = 0.25
             | otherwise = -0.25
 
-heval_jac :: Jacobian' N3 Double
+heval_jac :: Jacobian N3 Double
 heval_jac p0 p1 _ = [ 50.0*p1 / (pi*tmp) ::: -50.0*p0 / (pi*tmp) ::: 10.0 ::: Nil
                     , 10.0*p0 / sqrt tmp :::  10.0*p1 / sqrt tmp ::: 0.0  ::: Nil
                     , 0.0                ::: 0.0                 ::: 1.0  ::: Nil
@@ -425,16 +427,16 @@ helval_samples :: [Double]
 helval_samples = replicate helval_n 0.0
 
 run_helval :: Result N3
-run_helval = levmar' helval
-                     (Just heval_jac)
-                     helval_params
-                     helval_samples
-                     1000
-                     opts
-                     Nothing
-                     Nothing
-                     noLinearConstraints
-                     Nothing
+run_helval = levmar helval
+                    (Just heval_jac)
+                    helval_params
+                    helval_samples
+                    1000
+                    opts
+                    Nothing
+                    Nothing
+                    noLinearConstraints
+                    Nothing
 
 {- run_helval =>
 Right ( 0.1 ::: 2.880510934753633e-13 ::: 4.584295271122304e-12 ::: Nil
@@ -465,7 +467,7 @@ Right ( 0.1 ::: 2.880510934753633e-13 ::: 4.584295271122304e-12 ::: Nil
 -- constr2: p2 + p3 - 2*p4 = 0
 -- constr3: p1 - p4          = 0
 
-bt3 :: Model' N5 Double
+bt3 :: Model N5 Double
 bt3 p0 p1 p2 p3 p4 = replicate bt3_n (t1**2 + t2**2 + t3**2 + t4**2)
     where
       t1 = p0 - p1
@@ -473,7 +475,7 @@ bt3 p0 p1 p2 p3 p4 = replicate bt3_n (t1**2 + t2**2 + t3**2 + t4**2)
       t3 = p3 - 1.0
       t4 = p4 - 1.0
 
-bt3_jac :: Jacobian' N5 Double
+bt3_jac :: Jacobian N5 Double
 bt3_jac p0 p1 p2 p3 p4 = replicate bt3_n (   2.0*t1
                                          ::: 2.0*(t2 - t1)
                                          ::: 2.0*t2
@@ -505,16 +507,16 @@ bt3_linear_constraints = (     (1.0 ::: 3.0 ::: 0.0 ::: 0.0 :::  0.0 ::: Nil)
                          )
 
 run_bt3 :: Result N5
-run_bt3 = levmar' bt3
-                 (Just bt3_jac)
-                 bt3_params
-                 bt3_samples
-                 1000
-                 opts
-                 Nothing
-                 Nothing
-                 (Just bt3_linear_constraints)
-                 Nothing
+run_bt3 = levmar bt3
+                (Just bt3_jac)
+                bt3_params
+                bt3_samples
+                1000
+                opts
+                Nothing
+                Nothing
+                (Just bt3_linear_constraints)
+                Nothing
 
 {- run_bt3 =>
 Right ( -0.7674418626339431 ::: 0.2558139542113145 ::: 0.6279069703819862 ::: -0.11627906195935662 ::: 0.2558139542113146 ::: Nil
@@ -545,13 +547,13 @@ Right ( -0.7674418626339431 ::: 0.2558139542113145 ::: 0.6279069703819862 ::: -0
 --
 -- constr1: p0 + 2*p1 + 3*p2 = 1
 
-hs28 :: Model' N3 Double
+hs28 :: Model N3 Double
 hs28 p0 p1 p2 = replicate hs28_n (t1**2 + t2**2)
     where
       t1 = p0 + p1
       t2 = p1 + p2
 
-hs28_jac :: Jacobian' N3 Double
+hs28_jac :: Jacobian N3 Double
 hs28_jac p0 p1 p2 = replicate hs28_n (     2.0*t1
                                        ::: 2.0*(t1 + t2)
                                        ::: 2.0*t2
@@ -576,16 +578,16 @@ hs28_linear_constraints = ( ((1.0 ::: 2.0 ::: 3.0 ::: Nil) ::: Nil)
                           )
 
 run_hs28 :: Result N3
-run_hs28 = levmar' hs28
-                   (Just hs28_jac)
-                   hs28_params
-                   hs28_samples
-                   1000
-                   opts
-                   Nothing
-                   Nothing
-                   (Just hs28_linear_constraints)
-                   Nothing
+run_hs28 = levmar hs28
+                  (Just hs28_jac)
+                  hs28_params
+                  hs28_samples
+                  1000
+                  opts
+                  Nothing
+                  Nothing
+                  (Just hs28_linear_constraints)
+                  Nothing
 
 {- run_hs28 =>
 Right ( 0.49999041471671685 ::: -0.4999905696535188 ::: 0.4999969081967735 ::: Nil
@@ -615,14 +617,14 @@ Right ( 0.49999041471671685 ::: -0.4999905696535188 ::: 0.4999969081967735 ::: N
 -- constr1: sum [p0, p1, p2, p3, p4] = 5
 -- constr2: p2 - 2*(p3 + p4)       = -3
 
-hs48 :: Model' N5 Double
+hs48 :: Model N5 Double
 hs48 p0 p1 p2 p3 p4 = replicate hs48_n (t1**2 + t2**2 + t3**2)
     where
       t1 = p0 - 1.0
       t2 = p1 - p2
       t3 = p3 - p4
 
-hs48_jac :: Jacobian' N5 Double
+hs48_jac :: Jacobian N5 Double
 hs48_jac p0 p1 p2 p3 p4 = replicate hs48_n (     2.0*t1
                                              ::: 2.0*t2
                                              ::: 2.0*t2
@@ -652,16 +654,16 @@ hs48_linear_constraints = (     (1.0 ::: 1.0 ::: 1.0 :::  1.0 :::  1.0 ::: Nil)
                           )
 
 run_hs48 :: Result N5
-run_hs48 = levmar' hs48
-                   (Just hs48_jac)
-                   hs48_params
-                   hs48_samples
-                   1000
-                   opts
-                   Nothing
-                   Nothing
-                   (Just hs48_linear_constraints)
-                   Nothing
+run_hs48 = levmar hs48
+                  (Just hs48_jac)
+                  hs48_params
+                  hs48_samples
+                  1000
+                  opts
+                  Nothing
+                  Nothing
+                  (Just hs48_linear_constraints)
+                  Nothing
 
 {- run_hs48 =>
 Right ( 3.0191758865932465 ::: 4.989156301590405 ::: -3.0055547921224344 ::: 1.9986113019693914 ::: -2.0013886980306084 ::: Nil
@@ -694,7 +696,7 @@ Right ( 3.0191758865932465 ::: 4.989156301590405 ::: -3.0055547921224344 ::: 1.9
 -- constr2: p2 + p3 - 2*p4 = 0
 -- constr3: p1 - p4          = 0
 
-hs51 :: Model' N5 Double
+hs51 :: Model N5 Double
 hs51 p0 p1 p2 p3 p4 = replicate hs51_n (t1**2 + t2**2 + t3**2 + t4**2)
     where
       t1 = p0 - p1
@@ -702,7 +704,7 @@ hs51 p0 p1 p2 p3 p4 = replicate hs51_n (t1**2 + t2**2 + t3**2 + t4**2)
       t3 = p3 - 1.0
       t4 = p4 - 1.0
 
-hs51_jac :: Jacobian' N5 Double
+hs51_jac :: Jacobian N5 Double
 hs51_jac p0 p1 p2 p3 p4 = replicate hs51_n (     2.0*t1
                                              ::: 2.0*(t2 - t1)
                                              ::: 2.0*t2
@@ -734,16 +736,16 @@ hs51_linear_constraints = (     (1.0 ::: 3.0 ::: 0.0 ::: 0.0 :::  0.0 ::: Nil)
                           )
 
 run_hs51 :: Result N5
-run_hs51 = levmar' hs51
-                   (Just hs51_jac)
-                   hs51_params
-                   hs51_samples
-                   1000
-                   opts
-                   Nothing
-                   Nothing
-                   (Just hs51_linear_constraints)
-                   Nothing
+run_hs51 = levmar hs51
+                  (Just hs51_jac)
+                  hs51_params
+                  hs51_samples
+                  1000
+                  opts
+                  Nothing
+                  Nothing
+                  (Just hs51_linear_constraints)
+                  Nothing
 
 {- run_hs51 =>
 Right ( 1.000000975349995 ::: 0.999999674883335 ::: 1.0000028194247943 ::: 0.999996530341875 ::: 0.9999996748833347 ::: Nil
@@ -774,12 +776,12 @@ Right ( 1.000000975349995 ::: 0.999999674883335 ::: 1.0000028194247943 ::: 0.999
 --
 -- constr1: p1 >= -1.5
 
-hs01 :: Model' N2 Double
+hs01 :: Model N2 Double
 hs01 p0 p1 = [ 10.0*(p1 - p0**2)
              , 1.0 - p0
              ]
 
-hs01_jac :: Jacobian' N2 Double
+hs01_jac :: Jacobian N2 Double
 hs01_jac p0 _ = [ -20.0*p0 ::: 10.0 ::: Nil
                 , -1.0     ::: 0.0  ::: Nil
                 ]
@@ -801,16 +803,16 @@ _DBL_MAX :: Double
 _DBL_MAX = 1e+37 -- TODO: Get this directly from <float.h>.
 
 run_hs01 :: Result N2
-run_hs01 = levmar' hs01
-                   (Just hs01_jac)
-                   hs01_params
-                   hs01_samples
-                   1000
-                   opts
-                   (Just hs01_lb)
-                   (Just hs01_ub)
-                   noLinearConstraints
-                   Nothing
+run_hs01 = levmar hs01
+                  (Just hs01_jac)
+                  hs01_params
+                  hs01_samples
+                  1000
+                  opts
+                  (Just hs01_lb)
+                  (Just hs01_ub)
+                  noLinearConstraints
+                  Nothing
 
 {-run_hs01 =>
 Right ( 0.9999999999551645 ::: 0.9999999999101493 ::: Nil
@@ -842,10 +844,10 @@ Right ( 0.9999999999551645 ::: 0.9999999999101493 ::: Nil
 -- Original HS21 has the additional constraint 10*p0 - p1 >= 10
 -- which is inactive at the solution, so it is dropped here.
 
-hs21 :: Model' N2 Double
+hs21 :: Model N2 Double
 hs21 p0 p1 = [p0 / 10.0, p1]
 
-hs21_jac :: Jacobian' N2 Double
+hs21_jac :: Jacobian N2 Double
 hs21_jac _ _ = [ 0.1 ::: 0.0 ::: Nil
                , 0.0 ::: 1.0 ::: Nil
                ]
@@ -864,16 +866,16 @@ hs21_lb = 2.0  ::: -50.0 ::: Nil
 hs21_ub = 50.0 :::  50.0 ::: Nil
 
 run_hs21 :: Result N2
-run_hs21 = levmar' hs21
-                   (Just hs21_jac)
-                   hs21_params
-                   hs21_samples
-                   1000
-                   opts
-                   (Just hs21_lb)
-                   (Just hs21_ub)
-                   noLinearConstraints
-                   Nothing
+run_hs21 = levmar hs21
+                  (Just hs21_jac)
+                  hs21_params
+                  hs21_samples
+                  1000
+                  opts
+                  (Just hs21_lb)
+                  (Just hs21_ub)
+                  noLinearConstraints
+                  Nothing
 
 {- run_hs21 =>
 Right ( 2.0 ::: -4.688186073682305e-19 ::: Nil
@@ -902,14 +904,14 @@ Right ( 2.0 ::: -4.688186073682305e-19 ::: Nil
 -- constri: pi >= 0.0 (i=1..4)
 -- constr5: p1 <= 0.8
 
-hatfldb :: Model' N4 Double
+hatfldb :: Model N4 Double
 hatfldb p0 p1 p2 p3 = [ p0 - 1.0
                       , p0 - sqrt p1
                       , p1 - sqrt p2
                       , p2 - sqrt p3
                       ]
 
-hatfldb_jac :: Jacobian' N4 Double
+hatfldb_jac :: Jacobian N4 Double
 hatfldb_jac _ p1 p2 p3 = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0            ::: Nil
                          , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0            ::: Nil
                          , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0            ::: Nil
@@ -930,16 +932,16 @@ hatfldb_lb = 0.0      ::: 0.0 ::: 0.0      ::: 0.0      ::: Nil
 hatfldb_ub = _DBL_MAX ::: 0.8 ::: _DBL_MAX ::: _DBL_MAX ::: Nil
 
 run_hatfldb :: Result N4
-run_hatfldb = levmar' hatfldb
-                      (Just hatfldb_jac)
-                      hatfldb_params
-                      hatfldb_samples
-                      1000
-                      opts
-                      (Just hatfldb_lb)
-                      (Just hatfldb_ub)
-                      noLinearConstraints
-                      Nothing
+run_hatfldb = levmar hatfldb
+                     (Just hatfldb_jac)
+                     hatfldb_params
+                     hatfldb_samples
+                     1000
+                     opts
+                     (Just hatfldb_lb)
+                     (Just hatfldb_ub)
+                     noLinearConstraints
+                     Nothing
 
 {- run_hatfldb =>
 Right ( 0.9472135954999581 ::: 0.8 ::: 0.6400000000000067 ::: 0.40960000000001073 ::: Nil
@@ -970,14 +972,14 @@ Right ( 0.9472135954999581 ::: 0.8 ::: 0.6400000000000067 ::: 0.4096000000000107
 -- constri:   pi >= 0.0  (i=1..4)
 -- constri+4: pi <= 10.0 (i=1..4)
 
-hatfldc :: Model' N4 Double
+hatfldc :: Model N4 Double
 hatfldc p0 p1 p2 p3 = [ p0 - 1.0
                       , p0 - sqrt p1
                       , p1 - sqrt p2
                       , p3 - 1.0
                       ]
 
-hatfldc_jac :: Jacobian' N4 Double
+hatfldc_jac :: Jacobian N4 Double
 hatfldc_jac _ p1 p2 _ = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil
                         , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil
                         , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil
@@ -998,16 +1000,16 @@ hatfldc_lb =  0.0 :::  0.0 :::  0.0 :::  0.0 ::: Nil
 hatfldc_ub = 10.0 ::: 10.0 ::: 10.0 ::: 10.0 ::: Nil
 
 run_hatfldc :: Result N4
-run_hatfldc = levmar' hatfldc
-                      (Just hatfldc_jac)
-                      hatfldc_params
-                      hatfldc_samples
-                      1000
-                      opts
-                      (Just hatfldc_lb)
-                      (Just hatfldc_ub)
-                      noLinearConstraints
-                      Nothing
+run_hatfldc = levmar hatfldc
+                     (Just hatfldc_jac)
+                     hatfldc_params
+                     hatfldc_samples
+                     1000
+                     opts
+                     (Just hatfldc_lb)
+                     (Just hatfldc_ub)
+                     noLinearConstraints
+                     Nothing
 
 {- run_hatfldc =>
 Right ( 0.9999999999999974 ::: 0.99999999999999 ::: 0.9999999999999779 ::: 1.0 ::: Nil
@@ -1046,14 +1048,14 @@ Right ( 0.9999999999999974 ::: 0.99999999999999 ::: 0.9999999999999779 ::: 1.0 :
 -- constr7:  -0.2 <= p3 <= 0.3
 -- constr8:   0.0 <= p4 <= 0.3
 
-modhs52 :: Model' N5 Double
+modhs52 :: Model N5 Double
 modhs52 p0 p1 p2 p3 p4 = [ 4.0*p0 - p1
                          , p1 + p2 - 2.0
                          , p3 - 1.0
                          , p4 - 1.0
                          ]
 
-modhs52_jac :: Jacobian' N5 Double
+modhs52_jac :: Jacobian N5 Double
 modhs52_jac _ _ _ _ _ = [ 4.0 ::: -1.0 ::: 0.0 ::: 0.0 ::: 0.0 ::: Nil
                         , 0.0 :::  1.0 ::: 1.0 ::: 0.0 ::: 0.0 ::: Nil
                         , 0.0 :::  0.0 ::: 0.0 ::: 1.0 ::: 0.0 ::: Nil
@@ -1085,16 +1087,16 @@ modhs52_lb = -0.09    ::: 0.0 ::: -_DBL_MAX ::: -0.2 ::: 0.0 ::: Nil
 modhs52_ub = _DBL_MAX ::: 0.3 ::: 0.25      :::  0.3 ::: 0.3 ::: Nil
 
 run_modhs52 :: Result N5
-run_modhs52 = levmar' modhs52
-                      (Just modhs52_jac)
-                      modhs52_params
-                      modhs52_samples
-                      1000
-                      opts
-                      (Just modhs52_lb)
-                      (Just modhs52_ub)
-                      (Just modhs52_linear_constraints)
-                      (Just modhs52_weights)
+run_modhs52 = levmar modhs52
+                     (Just modhs52_jac)
+                     modhs52_params
+                     modhs52_samples
+                     1000
+                     opts
+                     (Just modhs52_lb)
+                     (Just modhs52_ub)
+                     (Just modhs52_linear_constraints)
+                     (Just modhs52_weights)
 
 {- run_modhs52 =>
 Right ( -0.10726256881484843 ::: 3.575418960494949e-2 ::: 0.2715083811346546 ::: -0.2000000019247555 ::: 3.5754189604949506e-2 ::: Nil
@@ -1130,12 +1132,12 @@ Right ( -0.10726256881484843 ::: 3.575418960494949e-2 ::: 0.2715083811346546 :::
 -- constr3: 0.1 <= p1 <= 2.9
 -- constr4: 0.7 <= p2
 
-mods235 :: Model' N3 Double
+mods235 :: Model N3 Double
 mods235 p0 p1 _ = [ 0.1*(p0 - 1.0)
                   , p1 - p0**2
                   ]
 
-mods235_jac :: Jacobian' N3 Double
+mods235_jac :: Jacobian N3 Double
 mods235_jac p0 _ _ = [ 0.1     ::: 0.0 ::: 0.0 ::: Nil
                      , -2.0*p0 ::: 1.0 ::: 0.0 ::: Nil
                      ]
@@ -1161,16 +1163,16 @@ mods235_lb = -_DBL_MAX ::: 0.1 ::: 0.7      ::: Nil
 mods235_ub =  _DBL_MAX ::: 2.9 ::: _DBL_MAX ::: Nil
 
 run_mods235 :: Result N3
-run_mods235 = levmar' mods235
-                      (Just mods235_jac)
-                      mods235_params
-                      mods235_samples
-                      1000
-                      opts
-                      (Just mods235_lb)
-                      (Just mods235_ub)
-                      (Just mods235_linear_constraints)
-                      Nothing
+run_mods235 = levmar mods235
+                     (Just mods235_jac)
+                     mods235_params
+                     mods235_samples
+                     1000
+                     opts
+                     (Just mods235_lb)
+                     (Just mods235_ub)
+                     (Just mods235_linear_constraints)
+                     Nothing
 
 {- run_mods235 =>
 Right ( -1.7250000000043926 ::: 2.9000000000175707 ::: 0.7250000000043927 ::: Nil
@@ -1211,13 +1213,13 @@ Right ( -1.7250000000043926 ::: 2.9000000000175707 ::: 0.7250000000043927 ::: Ni
 -- subject to cons5:
 --    x[1]<=0.7;
 
-modbt7 :: Model' N5 Double
+modbt7 :: Model N5 Double
 modbt7 p0 p1 _ _ _ = replicate modbt7_n (100.0*m**2 + n**2)
     where
       m = p1 - p0**2
       n = p0 - 1.0
 
-modbt7_jac :: Jacobian' N5 Double
+modbt7_jac :: Jacobian N5 Double
 modbt7_jac p0 p1 _ _ _ = replicate modbt7_n
                          (    -400.0*m*p0 + 2.0*p0 - 2.0
                            ::: 200.0*m
@@ -1251,16 +1253,16 @@ modbt7_lb = -_DBL_MAX ::: -_DBL_MAX ::: -_DBL_MAX ::: -_DBL_MAX ::: -0.3     :::
 modbt7_ub = 0.7       ::: _DBL_MAX  ::: _DBL_MAX  ::: _DBL_MAX  ::: _DBL_MAX ::: Nil
 
 run_modbt7 :: Result N5
-run_modbt7 = levmar' modbt7
-                      (Just modbt7_jac)
-                      modbt7_params
-                      modbt7_samples
-                      1000
-                      opts
-                      (Just modbt7_lb)
-                      (Just modbt7_ub)
-                      (Just modbt7_linear_constraints)
-                      Nothing
+run_modbt7 = levmar modbt7
+                     (Just modbt7_jac)
+                     modbt7_params
+                     modbt7_samples
+                     1000
+                     opts
+                     (Just modbt7_lb)
+                     (Just modbt7_ub)
+                     (Just modbt7_linear_constraints)
+                     Nothing
 
 -- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 -- !! TODO: This returns with: infStopReason = MaxIterations !!
@@ -1298,7 +1300,7 @@ Right ( 0.8027784157269001 ::: 0.6437482395532486 ::: 0.44652665528014895 ::: 1.
 -- constri:   pi>=0.0001 (i=1..5)
 -- constri+5: pi<=100.0  (i=1..5)
 
-combust :: Model' N5 Double
+combust :: Model N5 Double
 combust p0 p1 p2 p3 p4 =
     [ p0*p1 + p0 - 3*p4
     , 2*p0*p1 + p0 + 3*r10*p1*p1 + p1*p2*p2 + r7*p1*p2 + r9*p1*p3 + r8*p1 - r*p4
@@ -1316,7 +1318,7 @@ r8  = 4.4975 *1e-7
 r9  = 3.40735*1e-5
 r10 = 9.615  *1e-7
 
-combust_jac :: Jacobian' N5 Double
+combust_jac :: Jacobian N5 Double
 combust_jac p0 p1 p2 p3 _ =
     [     p1 + 1
       ::: p0
@@ -1364,16 +1366,16 @@ combust_lb =   0.0001 :::   0.0001 :::   0.0001 :::   0.0001 :::   0.0001 ::: Ni
 combust_ub = 100.0    ::: 100.0    ::: 100.0    ::: 100.0    ::: 100.0    ::: Nil
 
 run_combust :: Result N5
-run_combust = levmar' combust
-                      (Just combust_jac)
-                      combust_params
-                      combust_samples
-                      1000
-                      opts
-                      (Just combust_lb)
-                      (Just combust_ub)
-                      noLinearConstraints
-                      Nothing
+run_combust = levmar combust
+                     (Just combust_jac)
+                     combust_params
+                     combust_samples
+                     1000
+                     opts
+                     (Just combust_lb)
+                     (Just combust_ub)
+                     noLinearConstraints
+                     Nothing
 
 {- run_combust =>
 Right ( 3.430230156696717e-3 ::: 31.326496799034423 ::: 6.835040137781885e-2 ::: 0.8595289964750606 ::: 3.696244139315891e-2 ::: Nil

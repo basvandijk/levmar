@@ -2,23 +2,21 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module LevMar.Intermediate
-    ( levmar
-    , Model
+    ( Model
     , Jacobian
+    , LevMarable
+    , levmar
 
     , Options(..)
     , defaultOpts
+
+    , LinearConstraints
 
     , Info(..)
     , StopReason(..)
     , CovarMatrix
     , LevMarError(..)
 
-    , LevMarable
-    , levmar'
-    , LevMar
-    , Model'
-    , Jacobian'
     ) where
 
 import Foreign.Marshal.Array (allocaArray, peekArray, pokeArray, withArray)
@@ -31,146 +29,43 @@ import Control.Monad.Instances -- for 'instance Functor (Either a)'
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
-levmar :: LevMarable r
-       => Model r a
-       -> Maybe (Jacobian r a)
-       -> [r]                -- initial parameters
-       -> [(a, r)]           -- samples
-       -> Integer            -- itmax
-       -> Options r          -- opts
-       -> Maybe [r]          -- lower bounds
-       -> Maybe [r]          -- upper bounds
-       -> Maybe ([[r]], [r]) -- linear constraints
-       -> Maybe [r]          -- weights
-       -> Either LevMarError ([r], Info r, CovarMatrix r)
-levmar model mJac ps samples =
-    levmar' (\ps' -> map (model ps') xs)
-            (fmap (\jac -> \ps' -> map (jac ps') xs) mJac)
-            ps
-            ys
-        where
-          (xs, ys) = unzip samples
+type Model r = [r] -> [r]
 
-type Model  r a = [r] -> a -> r
-
-type Jacobian r a = [r] -> a -> [r]
-
-data Options r = Opts { optMu       :: r
-                      , optEpsilon1 :: r
-                      , optEpsilon2 :: r
-                      , optEpsilon3 :: r
-                      , optDelta    :: r
-                      } deriving Show
-
-defaultOpts :: Fractional r => Options r
-defaultOpts = Opts { optMu       = LMA_C._LM_INIT_MU
-                   , optEpsilon1 = LMA_C._LM_STOP_THRESH
-                   , optEpsilon2 = LMA_C._LM_STOP_THRESH
-                   , optEpsilon3 = LMA_C._LM_STOP_THRESH
-                   , optDelta    = LMA_C._LM_DIFF_DELTA
-                   }
-
-optsToList :: Options r -> [r]
-optsToList (Opts mu  eps1  eps2  eps3  delta) =
-                [mu, eps1, eps2, eps3, delta]
-
-data Info r = Info { infValues          :: [r]
-                   , infNumIter         :: Integer
-                   , infStopReason      :: StopReason
-                   , infNumFuncEvals    :: Integer
-                   , infNumJacobEvals   :: Integer
-                   , infNumLinSysSolved :: Integer
-                   } deriving Show
-
-listToInfo :: RealFrac r => [r] -> Info r
-listToInfo [a,b,c,d,e,f,g,h,i,j] =
-    Info { infValues          = [a,b,c,d,e]
-         , infNumIter         = floor f
-         , infStopReason      = toEnum $ floor g - 1
-         , infNumFuncEvals    = floor h
-         , infNumJacobEvals   = floor i
-         , infNumLinSysSolved = floor j
-         }
-listToInfo _ = error "liftToInfo: wrong list length"
-
-data StopReason = SmallGradient
-                | SmallDp
-                | MaxIterations
-                | SingularMatrix
-                | SmallestError
-                | SmallE_2
-                | InvalidValues
-                  deriving (Show, Enum)
-
-type CovarMatrix r = [[r]]
-
-type LevMar r =  Model' r
-              -> Maybe (Jacobian' r)
-              -> [r]                -- initial parameters
-              -> [r]                -- samples
-              -> Integer            -- itmax
-              -> Options r          -- opts
-              -> Maybe [r]          -- lower bounds
-              -> Maybe [r]          -- upper bounds
-              -> Maybe ([[r]], [r]) -- linear constraints
-              -> Maybe [r]          -- weights
-              -> Either LevMarError ([r], Info r, CovarMatrix r)
-
-data LevMarError = LapackError
-                 | NoJacobian
-                 | NoBoxConstraints
-                 | FailedBoxCheck
-                 | MemoryAllocationFailure
-                 | ConstraintMatrixRowsGtCols
-                 | ConstraintMatrixNotFullRowRank
-                 | TooFewMeasurements
-                 | SingularMatrixError
-                 | SumOfSquaresNotFinite
-                   deriving Show
-
-levmarCErrorToLevMarError :: [(CInt, LevMarError)]
-levmarCErrorToLevMarError = [ (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
-                            , (LMA_C._LM_ERROR_NO_JACOBIAN,                         NoJacobian)
-                            , (LMA_C._LM_ERROR_NO_BOX_CONSTRAINTS,                  NoBoxConstraints)
-                            , (LMA_C._LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
-                            , (LMA_C._LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
-                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
-                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
-                            , (LMA_C._LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
-                            , (LMA_C._LM_ERROR_SINGULAR_MATRIX,                     SingularMatrixError)
-                            , (LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           SumOfSquaresNotFinite)
-                            ]
-
-convertLevMarError :: CInt -> LevMarError
-convertLevMarError err = fromMaybe (error "Unknown levmar error") $
-                         lookup err levmarCErrorToLevMarError
-
-type Model' r = [r] -> [r]
-
-type Jacobian' r = [r] -> [[r]]
+-- | See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+type Jacobian r = [r] -> [[r]]
 
 class LevMarable r where
-    levmar' :: LevMar r
+    levmar :: Model r                     -- ^ Model
+           -> Maybe (Jacobian r)          -- ^ Optional jacobian
+           -> [r]                         -- ^ Initial parameters
+           -> [r]                         -- ^ Samples
+           -> Integer                     -- ^ Maximum iterations
+           -> Options r                   -- ^ Options
+           -> Maybe [r]                   -- ^ Optional lower bounds
+           -> Maybe [r]                   -- ^ Optional upper bounds
+           -> Maybe (LinearConstraints r) -- ^ Optional linear constraints
+           -> Maybe [r]                   -- ^ Optional weights
+           -> Either LevMarError ([r], Info r, CovarMatrix r)
 
 instance LevMarable Float where
-    levmar' = gen_levmar LMA_C.slevmar_der
-                         LMA_C.slevmar_dif
-                         LMA_C.slevmar_bc_der
-                         LMA_C.slevmar_bc_dif
-                         LMA_C.slevmar_lec_der
-                         LMA_C.slevmar_lec_dif
-                         LMA_C.slevmar_blec_der
-                         LMA_C.slevmar_blec_dif
+    levmar = gen_levmar LMA_C.slevmar_der
+                        LMA_C.slevmar_dif
+                        LMA_C.slevmar_bc_der
+                        LMA_C.slevmar_bc_dif
+                        LMA_C.slevmar_lec_der
+                        LMA_C.slevmar_lec_dif
+                        LMA_C.slevmar_blec_der
+                        LMA_C.slevmar_blec_dif
 
 instance LevMarable Double where
-    levmar' = gen_levmar LMA_C.dlevmar_der
-                         LMA_C.dlevmar_dif
-                         LMA_C.dlevmar_bc_der
-                         LMA_C.dlevmar_bc_dif
-                         LMA_C.dlevmar_lec_der
-                         LMA_C.dlevmar_lec_dif
-                         LMA_C.dlevmar_blec_der
-                         LMA_C.dlevmar_blec_dif
+    levmar = gen_levmar LMA_C.dlevmar_der
+                        LMA_C.dlevmar_dif
+                        LMA_C.dlevmar_bc_der
+                        LMA_C.dlevmar_bc_dif
+                        LMA_C.dlevmar_lec_der
+                        LMA_C.dlevmar_lec_dif
+                        LMA_C.dlevmar_blec_der
+                        LMA_C.dlevmar_blec_dif
 
 {-|
 Preconditions:
@@ -190,7 +85,18 @@ gen_levmar :: forall cr r. (Storable cr, Real cr, Fractional cr, RealFrac r)
            -> LMA_C.LevMarLecDif cr
            -> LMA_C.LevMarBLecDer cr
            -> LMA_C.LevMarBLecDif cr
-           -> LevMar r
+
+           -> Model r                     -- ^ Model
+           -> Maybe (Jacobian r)          -- ^ Optional jacobian
+           -> [r]                         -- ^ Initial parameters
+           -> [r]                         -- ^ Samples
+           -> Integer                     -- ^ Maximum iterations
+           -> Options r                   -- ^ Options
+           -> Maybe [r]                   -- ^ Optional lower bounds
+           -> Maybe [r]                   -- ^ Optional upper bounds
+           -> Maybe (LinearConstraints r) -- ^ Optional linear constraints
+           -> Maybe [r]                   -- ^ Optional weights
+           -> Either LevMarError ([r], Info r, CovarMatrix r)
 gen_levmar f_der
            f_dif
            f_bc_der
@@ -207,6 +113,7 @@ gen_levmar f_der
         allocaArray LMA_C._LM_INFO_SZ $ \infoPtr ->
         allocaArray covarLen $ \covarPtr ->
         LMA_C.withModel (convertModel model) $ \modelPtr -> do
+
           let runDif :: LMA_C.LevMarDif cr -> IO CInt
               runDif f = f modelPtr
                            psPtr
@@ -282,13 +189,13 @@ gen_levmar f_der
                           f $ g weightsPtr
 
 convertModel :: (Real r, Fractional r, Storable c, Real c, Fractional c)
-             =>  Model' r -> LMA_C.Model c
+             =>  Model r -> LMA_C.Model c
 convertModel model = \parPtr hxPtr numPar _ _ -> do
                        params <- peekArray (fromIntegral numPar) parPtr
                        pokeArray hxPtr $ map realToFrac $ model $ map realToFrac params
 
 convertJacobian :: (Real r, Fractional r, Storable c, Real c, Fractional c)
-                => Jacobian' r -> LMA_C.Jacobian c
+                => Jacobian r -> LMA_C.Jacobian c
 convertJacobian jac = \parPtr jPtr numPar _ _ -> do
                         params <- peekArray (fromIntegral numPar) parPtr
                         pokeArray jPtr $ concatMap (map realToFrac) $ jac $ map realToFrac params
@@ -296,3 +203,81 @@ convertJacobian jac = \parPtr jPtr numPar _ _ -> do
 maybeWithArray :: Storable a => Maybe [a] -> (Ptr a -> IO b) -> IO b
 maybeWithArray Nothing   f = f nullPtr
 maybeWithArray (Just xs) f = withArray xs f
+
+data Options r = Opts { optMu       :: r
+                      , optEpsilon1 :: r
+                      , optEpsilon2 :: r
+                      , optEpsilon3 :: r
+                      , optDelta    :: r
+                      } deriving Show
+
+defaultOpts :: Fractional r => Options r
+defaultOpts = Opts { optMu       = LMA_C._LM_INIT_MU
+                   , optEpsilon1 = LMA_C._LM_STOP_THRESH
+                   , optEpsilon2 = LMA_C._LM_STOP_THRESH
+                   , optEpsilon3 = LMA_C._LM_STOP_THRESH
+                   , optDelta    = LMA_C._LM_DIFF_DELTA
+                   }
+
+optsToList :: Options r -> [r]
+optsToList (Opts mu  eps1  eps2  eps3  delta) =
+                [mu, eps1, eps2, eps3, delta]
+
+type LinearConstraints r = ([[r]], [r])
+
+data Info r = Info { infValues          :: [r]
+                   , infNumIter         :: Integer
+                   , infStopReason      :: StopReason
+                   , infNumFuncEvals    :: Integer
+                   , infNumJacobEvals   :: Integer
+                   , infNumLinSysSolved :: Integer
+                   } deriving Show
+
+listToInfo :: RealFrac r => [r] -> Info r
+listToInfo [a,b,c,d,e,f,g,h,i,j] =
+    Info { infValues          = [a,b,c,d,e]
+         , infNumIter         = floor f
+         , infStopReason      = toEnum $ floor g - 1
+         , infNumFuncEvals    = floor h
+         , infNumJacobEvals   = floor i
+         , infNumLinSysSolved = floor j
+         }
+listToInfo _ = error "liftToInfo: wrong list length"
+
+data StopReason = SmallGradient
+                | SmallDp
+                | MaxIterations
+                | SingularMatrix
+                | SmallestError
+                | SmallE_2
+                | InvalidValues
+                  deriving (Show, Enum)
+
+type CovarMatrix r = [[r]]
+
+data LevMarError = LapackError
+                 | FailedBoxCheck
+                 | MemoryAllocationFailure
+                 | ConstraintMatrixRowsGtCols
+                 | ConstraintMatrixNotFullRowRank
+                 | TooFewMeasurements
+                 | SingularMatrixError
+                 | SumOfSquaresNotFinite
+                   deriving Show
+
+levmarCErrorToLevMarError :: [(CInt, LevMarError)]
+levmarCErrorToLevMarError = [ (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
+                          --, (LMA_C._LM_ERROR_NO_JACOBIAN,                         should never happen)
+                          --, (LMA_C._LM_ERROR_NO_BOX_CONSTRAINTS,                  should never happen)
+                            , (LMA_C._LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
+                            , (LMA_C._LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
+                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
+                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
+                            , (LMA_C._LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
+                            , (LMA_C._LM_ERROR_SINGULAR_MATRIX,                     SingularMatrixError)
+                            , (LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           SumOfSquaresNotFinite)
+                            ]
+
+convertLevMarError :: CInt -> LevMarError
+convertLevMarError err = fromMaybe (error "Unknown levmar error") $
+                         lookup err levmarCErrorToLevMarError

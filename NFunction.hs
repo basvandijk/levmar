@@ -13,7 +13,7 @@ import SizedList    (SizedList(..))
 
 -- | A @NFunction n a b@ is a function which takes @n@ arguments of
 -- type @a@ and returns a @b@.
--- For example: NFunction (S (S (S Z))) a b ~ (a -> a -> a -> b)
+-- For example: @NFunction (S (S (S Z))) a b ~ (a -> a -> a -> b)@
 type family NFunction n a b :: *
 
 type instance NFunction Z     a b = b
@@ -28,7 +28,13 @@ f $* (x ::: xs) = f x $* xs
 infixr 0 $* -- same as $
 
 class Nat n => ComposeN n where
-    compose :: forall a b c. n -> a -> (b -> c) -> NFunction n a b -> NFunction n a c
+    -- | Composition of NFunctions.
+    --
+    -- Note that the @n@ and @a@ arguments are used by the type
+    -- checker to select the right @ComposeN@ instance. They are
+    -- usally given as @(witnessNat :: n)@ and @(undefined :: a)@.
+    compose :: forall a b c. n -> a
+            -> (b -> c) -> NFunction n a b -> NFunction n a c
 
 instance ComposeN Z where
     compose Z _ = ($)
