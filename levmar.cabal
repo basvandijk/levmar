@@ -49,6 +49,10 @@ description:   The Levenberg-Marquardt algorithm is an iterative
 	       All modules are self-contained; i.e. each module
 	       re-exports all the things you need to work with it.
 	       .
+	       For an example how to use this library see Demo.hs
+	       which is included in this package. Demo.hs is a Haskell
+	       translation of lmdemo.c from the C levmar library.
+	       .
                A note regarding the license:
                .
                This library depends on bindings-levmar which is
