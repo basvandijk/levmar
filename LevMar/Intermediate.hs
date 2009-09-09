@@ -318,8 +318,8 @@ listToInfo _ = error "liftToInfo: wrong list length"
 data StopReason = SmallGradient  -- ^ Stopped because of small gradient @J^T e@.
                 | SmallDp        -- ^ Stopped because of small Dp.
                 | MaxIterations  -- ^ Stopped because maximum iterations was reached.
-                | SingularMatrix -- ^ Stopped because of singular matrix. Restart from current estimated parameters with increased 'optMu'.
-                | SmallestError  -- ^ Stopped because no further error reduction is possible. Restart with increased 'optMu'.
+                | SingularMatrix -- ^ Stopped because of singular matrix. Restart from current estimated parameters with increased 'optScaleInitMu'.
+                | SmallestError  -- ^ Stopped because no further error reduction is possible. Restart with increased 'optScaleInitMu'.
                 | SmallNorm2E    -- ^ Stopped because of small @||e||_2@.
                 | InvalidValues  -- ^ Stopped because model function returned invalid values (i.e. NaN or Inf). This is a user error.
                   deriving (Show, Enum)

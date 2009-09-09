@@ -63,9 +63,42 @@ import Data.Either
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
-type Model    n r = NFunction n r [r]
+{- | A function from @n@ parameters of type @r@ to a list of @r@.
 
--- | See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+An example from /Demo.hs/:
+
+@
+type N4 = 'S' ('S' ('S' ('S' 'Z')))
+
+hatfldc :: Model N4 Double
+hatfldc p0 p1 p2 p3 = [ p0 - 1.0
+                      , p0 - sqrt p1
+                      , p1 - sqrt p2
+                      , p3 - 1.0
+                      ]
+@
+-}
+type Model n r = NFunction n r [r]
+
+{- | The jacobian of the 'Model' function. Expressed as a function from
+@n@ parameters of type @r@ to a list of @n@-sized lists of @r@
+
+See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+
+For example the jacobian of the above @hatfldc@ model is:
+
+@
+type N4 = 'S' ('S' ('S' ('S' 'Z')))
+
+hatfldc_jac :: Jacobian N4 Double
+hatfldc_jac _ p1 p2 _ = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil
+                        , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil
+                        , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil
+                        , 0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil
+                        ]
+@
+-}
+
 type Jacobian n r = NFunction n r [SizedList n r]
 
 

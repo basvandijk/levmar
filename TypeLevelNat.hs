@@ -19,9 +19,13 @@ module TypeLevelNat
     ) where
 
 
-data    Z   = Z   deriving Show
+-- | Type-level natural denoting zero
+data Z = Z deriving Show
+
+-- | Type-level natural denoting the /S/uccessor of another type-level natural.
 newtype S n = S n deriving Show
 
+-- | Class of all type-level naturals.
 class Nat n where
    -- | Case analysis on natural numbers.
    caseNat :: forall r.
