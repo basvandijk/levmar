@@ -1,29 +1,54 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+--------------------------------------------------------------------------------
+-- |
+-- Module      :  LevMar
+-- Copyright   :  (c) 2009 Roel van Dijk & Bas van Dijk
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  vandijk.roel@gmail.com, v.dijk.bas@gmail.com
+-- Stability   :  Experimental
+--
+--
+--
+-- For additional documentation see the documentation of the levmar C
+-- library which this library is based on:
+-- <http://www.ics.forth.gr/~lourakis/levmar/>
+--
+--------------------------------------------------------------------------------
+
 module LevMar
-    ( Model
+    ( -- * Model & Jacobian.
+      Model
     , Jacobian
+
+      -- * Levenberg-Marquardt algorithm.
+    , LMA_I.LevMarable
     , levmar
 
-      -- *Supporting types and default values
-    , LMA_I.Options(..)
-    , LMA_I.defaultOpts
-    , LMA_I.StopReason(..)
-    , LMA_I.Info(..)
-    , LMA_I.LevMarable
-    , LMA_I.LevMarError(..)
-    , CovarMatrix
     , LinearConstraints
     , noLinearConstraints
     , Matrix
 
-      -- *Type-level stuff
+      -- * Minimization options.
+    , LMA_I.Options(..)
+    , LMA_I.defaultOpts
+
+      -- * Output
+    , LMA_I.Info(..)
+    , LMA_I.StopReason(..)
+    , CovarMatrix
+
+    , LMA_I.LevMarError(..)
+
+      -- *Type-level machinery
     , Z, S, Nat
     , SizedList(..)
     , NFunction
     )
     where
+
 
 import qualified LevMar.Intermediate as LMA_I
 
@@ -33,18 +58,29 @@ import NFunction    (NFunction, ($*))
 
 import Data.Either
 
+
+--------------------------------------------------------------------------------
+-- Model & Jacobian.
+--------------------------------------------------------------------------------
+
 type Model    n r = NFunction n r [r]
 
 -- | See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 type Jacobian n r = NFunction n r [SizedList n r]
 
+
+--------------------------------------------------------------------------------
+-- Levenberg-Marquardt algorithm.
+--------------------------------------------------------------------------------
+
+-- | The Levenberg-Marquardt algorithm.
 levmar :: forall n k r. (Nat n, Nat k, LMA_I.LevMarable r)
        => (Model n r)                     -- ^ Model
        -> Maybe (Jacobian n r)            -- ^ Optional jacobian
        -> SizedList n r                   -- ^ Initial parameters
        -> [r]                             -- ^ Samples
        -> Integer                         -- ^ Maximum number of iterations
-       -> LMA_I.Options r                 -- ^ Options
+       -> LMA_I.Options r                 -- ^ Minimization options
        -> Maybe (SizedList n r)           -- ^ Optional lower bounds
        -> Maybe (SizedList n r)           -- ^ Optional upper bounds
        -> Maybe (LinearConstraints k n r) -- ^ Optional linear constraints
@@ -73,11 +109,10 @@ levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                               , unsafeFromList $ map unsafeFromList covar
                                               )
 
-type CovarMatrix n r = Matrix n n r
-
+-- | Linear constraints consisting of a constraints matrix, /kxn/ and
+--   a right hand constraints vector, /kx1/ where /n/ is the number of
+--   parameters and /k/ is the number of constraints.
 type LinearConstraints k n r = (Matrix k n r, SizedList k r)
-
-type Matrix n m r = SizedList n (SizedList m r)
 
 -- |Value to denote the absense of any linear constraints over the
 -- parameters of the model function. Use this instead of 'Nothing'
@@ -85,3 +120,12 @@ type Matrix n m r = SizedList n (SizedList m r)
 -- can't be inferred.
 noLinearConstraints :: Nat n => Maybe (LinearConstraints Z n r)
 noLinearConstraints = Nothing
+
+-- | A /nxm/ matrix is a sized list of /n/ sized lists of length /m/.
+type Matrix n m r = SizedList n (SizedList m r)
+
+-- | Covariance matrix corresponding to LS solution.
+type CovarMatrix n r = Matrix n n r
+
+
+-- The End ---------------------------------------------------------------------

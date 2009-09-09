@@ -1,23 +1,46 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
 
+--------------------------------------------------------------------------------
+-- |
+-- Module      :  LevMar.Intermediate
+-- Copyright   :  (c) 2009 Roel van Dijk & Bas van Dijk
+-- License     :  BSD-style (see the file LICENSE)
+--
+-- Maintainer  :  vandijk.roel@gmail.com, v.dijk.bas@gmail.com
+-- Stability   :  Experimental
+--
+--
+--
+-- For additional documentation see the documentation of the levmar C
+-- library which this library is based on:
+-- <http://www.ics.forth.gr/~lourakis/levmar/>
+--
+--------------------------------------------------------------------------------
+
 module LevMar.Intermediate
-    ( Model
+    ( -- * Model & Jacobian.
+       Model
     , Jacobian
+
+      -- * Levenberg-Marquardt algorithm.
     , LevMarable
     , levmar
 
+    , LinearConstraints
+
+      -- * Minimization options.
     , Options(..)
     , defaultOpts
 
-    , LinearConstraints
-
+      -- * Output
     , Info(..)
     , StopReason(..)
     , CovarMatrix
-    , LevMarError(..)
 
+    , LevMarError(..)
     ) where
+
 
 import Foreign.Marshal.Array (allocaArray, peekArray, pokeArray, withArray)
 import Foreign.Ptr           (Ptr, nullPtr, plusPtr)
@@ -29,10 +52,20 @@ import Control.Monad.Instances -- for 'instance Functor (Either a)'
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
+
+--------------------------------------------------------------------------------
+-- Model & Jacobian.
+--------------------------------------------------------------------------------
+
 type Model r = [r] -> [r]
 
 -- | See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 type Jacobian r = [r] -> [[r]]
+
+
+--------------------------------------------------------------------------------
+-- Levenberg-Marquardt algorithm.
+--------------------------------------------------------------------------------
 
 -- | The Levenberg-Marquardt algorithm is overloaded to work on 'Double' and 'Float'.
 class LevMarable r where
@@ -43,7 +76,7 @@ class LevMarable r where
            -> [r]                         -- ^ Initial parameters
            -> [r]                         -- ^ Samples
            -> Integer                     -- ^ Maximum iterations
-           -> Options r                   -- ^ Options
+           -> Options r                   -- ^ Minimization options
            -> Maybe [r]                   -- ^ Optional lower bounds
            -> Maybe [r]                   -- ^ Optional upper bounds
            -> Maybe (LinearConstraints r) -- ^ Optional linear constraints
@@ -70,7 +103,9 @@ instance LevMarable Double where
                         LMA_C.dlevmar_blec_der
                         LMA_C.dlevmar_blec_dif
 
-{-|
+{- | @gen_levmar@ takes the low-level C functions as arguments and
+executes one of them depending on the optional jacobian and constraints.
+
 Preconditions:
   length ys >= length ps
 
@@ -209,6 +244,17 @@ maybeWithArray :: Storable a => Maybe [a] -> (Ptr a -> IO b) -> IO b
 maybeWithArray Nothing   f = f nullPtr
 maybeWithArray (Just xs) f = withArray xs f
 
+
+-- | Linear constraints consisting of a constraints matrix, /kxm/ and
+--   a right hand constraints vector, /kx1/ where /m/ is the number of
+--   parameters and /k/ is the number of constraints.
+type LinearConstraints r = ([[r]], [r])
+
+
+--------------------------------------------------------------------------------
+-- Minimization options.
+--------------------------------------------------------------------------------
+
 -- | Minimization options
 data Options r =
     Opts { optScaleInitMu      :: r -- ^ Scale factor for initial /mu/.
@@ -235,9 +281,10 @@ optsToList :: Options r -> [r]
 optsToList (Opts mu  eps1  eps2  eps3  delta) =
                 [mu, eps1, eps2, eps3, delta]
 
--- | Linear constraints consisting of a constraints matrix, /kxm/
---   and a right hand constraints vector, /kx1/.
-type LinearConstraints r = ([[r]], [r])
+
+--------------------------------------------------------------------------------
+-- Output
+--------------------------------------------------------------------------------
 
 -- | Information regarding the minimization.
 data Info r = Info { infNorm2initE      :: r          -- ^ @||e||_2@             at initial   parameters.
@@ -280,13 +327,22 @@ data StopReason = SmallGradient  -- ^ Stopped because of small gradient @J^T e@.
 -- | Covariance matrix corresponding to LS solution.
 type CovarMatrix r = [[r]]
 
-data LevMarError = LapackError
-                 | FailedBoxCheck
-                 | MemoryAllocationFailure
-                 | ConstraintMatrixRowsGtCols
-                 | ConstraintMatrixNotFullRowRank
-                 | TooFewMeasurements
-                   deriving Show
+
+--------------------------------------------------------------------------------
+-- Error
+--------------------------------------------------------------------------------
+
+data LevMarError
+    = LapackError                    -- ^ A call to a lapack subroutine failed in the underlying C levmar library.
+    | FailedBoxCheck                 -- ^ At least one lower bound exceeds the upper one.
+    | MemoryAllocationFailure        -- ^ A call to @malloc@ failed in the underlying C levmar library.
+    | ConstraintMatrixRowsGtCols     -- ^ The matrix of constraints cannot have more rows than columns.
+    | ConstraintMatrixNotFullRowRank -- ^ Constraints matrix is not of full row rank.
+    | TooFewMeasurements             -- ^ Cannot solve a problem with fewer measurements than unknowns.
+                                     --   In case linear constraints are provided, this error is also returned
+                                     --   when the number of measurements is smaller than the number of unknowns
+                                     --   minus the number of equality constraints.
+      deriving Show
 
 levmarCErrorToLevMarError :: [(CInt, LevMarError)]
 levmarCErrorToLevMarError =
@@ -305,3 +361,6 @@ levmarCErrorToLevMarError =
 convertLevMarError :: CInt -> LevMarError
 convertLevMarError err = fromMaybe (error "Unknown levmar error") $
                          lookup err levmarCErrorToLevMarError
+
+
+-- The End ---------------------------------------------------------------------
