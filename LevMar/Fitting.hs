@@ -46,6 +46,7 @@ module LevMar.Fitting
     , Z, S, Nat
     , SizedList(..)
     , NFunction
+    , ComposeN
     ) where
 
 
