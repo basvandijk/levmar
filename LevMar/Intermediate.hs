@@ -34,7 +34,10 @@ type Model r = [r] -> [r]
 -- | See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 type Jacobian r = [r] -> [[r]]
 
+-- | The Levenberg-Marquardt algorithm is overloaded to work on 'Double' and 'Float'.
 class LevMarable r where
+
+    -- | The Levenberg-Marquardt algorithm.
     levmar :: Model r                     -- ^ Model
            -> Maybe (Jacobian r)          -- ^ Optional jacobian
            -> [r]                         -- ^ Initial parameters
@@ -147,7 +150,9 @@ gen_levmar f_der
                                  then withLinConstraints runDif f_lec_dif
                                  else runDif f_dif
 
-          if r < 0
+          if    r < 0
+             && r /= LMA_C._LM_ERROR_SINGULAR_MATRIX -- we don't treat these two as an error
+             && r /= LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
             then return $ Left $ convertLevMarError r
             else do result <- peekArray lenPs psPtr
                     info   <- peekArray LMA_C._LM_INFO_SZ infoPtr
@@ -204,38 +209,56 @@ maybeWithArray :: Storable a => Maybe [a] -> (Ptr a -> IO b) -> IO b
 maybeWithArray Nothing   f = f nullPtr
 maybeWithArray (Just xs) f = withArray xs f
 
-data Options r = Opts { optMu       :: r
-                      , optEpsilon1 :: r
-                      , optEpsilon2 :: r
-                      , optEpsilon3 :: r
-                      , optDelta    :: r
-                      } deriving Show
+-- | Minimization options
+data Options r =
+    Opts { optScaleInitMu      :: r -- ^ Scale factor for initial /mu/.
+         , optStopNormInfJacTe :: r -- ^ Stopping thresholds for @||J^T e||_inf@.
+         , optStopNorm2Dp      :: r -- ^ Stopping thresholds for @||Dp||_2@.
+         , optStopNorm2E       :: r -- ^ Stopping thresholds for @||e||_2@.
+         , optDelta            :: r -- ^ Step used in the difference approximation to the Jacobian.
+                                    --   If @optDelta<0@, the Jacobian is approximated
+                                    --   with central differences which are more accurate
+                                    --   (but slower!) compared to the forward differences
+                                    --   employed by default.
+         } deriving Show
 
+-- | Default minimization options
 defaultOpts :: Fractional r => Options r
-defaultOpts = Opts { optMu       = LMA_C._LM_INIT_MU
-                   , optEpsilon1 = LMA_C._LM_STOP_THRESH
-                   , optEpsilon2 = LMA_C._LM_STOP_THRESH
-                   , optEpsilon3 = LMA_C._LM_STOP_THRESH
-                   , optDelta    = LMA_C._LM_DIFF_DELTA
+defaultOpts = Opts { optScaleInitMu      = LMA_C._LM_INIT_MU
+                   , optStopNormInfJacTe = LMA_C._LM_STOP_THRESH
+                   , optStopNorm2Dp      = LMA_C._LM_STOP_THRESH
+                   , optStopNorm2E       = LMA_C._LM_STOP_THRESH
+                   , optDelta            = LMA_C._LM_DIFF_DELTA
                    }
 
 optsToList :: Options r -> [r]
 optsToList (Opts mu  eps1  eps2  eps3  delta) =
                 [mu, eps1, eps2, eps3, delta]
 
+-- | Linear constraints consisting of a constraints matrix, /kxm/
+--   and a right hand constraints vector, /kx1/.
 type LinearConstraints r = ([[r]], [r])
 
-data Info r = Info { infValues          :: [r]
-                   , infNumIter         :: Integer
-                   , infStopReason      :: StopReason
-                   , infNumFuncEvals    :: Integer
-                   , infNumJacobEvals   :: Integer
-                   , infNumLinSysSolved :: Integer
+-- | Information regarding the minimization.
+data Info r = Info { infNorm2initE      :: r          -- ^ @||e||_2@             at initial   parameters.
+                   , infNorm2E          :: r          -- ^ @||e||_2@             at estimated parameters.
+                   , infNormInfJacTe    :: r          -- ^ @||J^T e||_inf@       at estimated parameters.
+                   , infNorm2Dp         :: r          -- ^ @||Dp||_2@            at estimated parameters.
+                   , infMuDivMax        :: r          -- ^ @\mu/max[J^T J]_ii ]@ at estimated parameters.
+                   , infNumIter         :: Integer    -- ^ Number of iterations.
+                   , infStopReason      :: StopReason -- ^ Reason for terminating.
+                   , infNumFuncEvals    :: Integer    -- ^ Number of function evaluations.
+                   , infNumJacobEvals   :: Integer    -- ^ Number of jacobian evaluations.
+                   , infNumLinSysSolved :: Integer    -- ^ Number of linear systems solved, i.e. attempts for reducing error.
                    } deriving Show
 
 listToInfo :: (RealFrac cr, Fractional r) => [cr] -> Info r
 listToInfo [a,b,c,d,e,f,g,h,i,j] =
-    Info { infValues          = map realToFrac [a,b,c,d,e]
+    Info { infNorm2initE      = realToFrac a
+         , infNorm2E          = realToFrac b
+         , infNormInfJacTe    = realToFrac c
+         , infNorm2Dp         = realToFrac d
+         , infMuDivMax        = realToFrac e
          , infNumIter         = floor f
          , infStopReason      = toEnum $ floor g - 1
          , infNumFuncEvals    = floor h
@@ -244,15 +267,17 @@ listToInfo [a,b,c,d,e,f,g,h,i,j] =
          }
 listToInfo _ = error "liftToInfo: wrong list length"
 
-data StopReason = SmallGradient
-                | SmallDp
-                | MaxIterations
-                | SingularMatrix
-                | SmallestError
-                | SmallE_2
-                | InvalidValues
+-- | Reason for terminating.
+data StopReason = SmallGradient  -- ^ Stopped because of small gradient @J^T e@.
+                | SmallDp        -- ^ Stopped because of small Dp.
+                | MaxIterations  -- ^ Stopped because maximum iterations was reached.
+                | SingularMatrix -- ^ Stopped because of singular matrix. Restart from current estimated parameters with increased 'optMu'.
+                | SmallestError  -- ^ Stopped because no further error reduction is possible. Restart with increased 'optMu'.
+                | SmallNorm2E    -- ^ Stopped because of small @||e||_2@.
+                | InvalidValues  -- ^ Stopped because model function returned invalid values (i.e. NaN or Inf). This is a user error.
                   deriving (Show, Enum)
 
+-- | Covariance matrix corresponding to LS solution.
 type CovarMatrix r = [[r]]
 
 data LevMarError = LapackError
@@ -261,22 +286,21 @@ data LevMarError = LapackError
                  | ConstraintMatrixRowsGtCols
                  | ConstraintMatrixNotFullRowRank
                  | TooFewMeasurements
-                 | SingularMatrixError
-                 | SumOfSquaresNotFinite
                    deriving Show
 
 levmarCErrorToLevMarError :: [(CInt, LevMarError)]
-levmarCErrorToLevMarError = [ (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
-                          --, (LMA_C._LM_ERROR_NO_JACOBIAN,                         should never happen)
-                          --, (LMA_C._LM_ERROR_NO_BOX_CONSTRAINTS,                  should never happen)
-                            , (LMA_C._LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
-                            , (LMA_C._LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
-                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
-                            , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
-                            , (LMA_C._LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
-                            , (LMA_C._LM_ERROR_SINGULAR_MATRIX,                     SingularMatrixError)
-                            , (LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           SumOfSquaresNotFinite)
-                            ]
+levmarCErrorToLevMarError =
+    [ (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
+  --, (LMA_C._LM_ERROR_NO_JACOBIAN,                         can never happen)
+  --, (LMA_C._LM_ERROR_NO_BOX_CONSTRAINTS,                  can never happen)
+    , (LMA_C._LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
+    , (LMA_C._LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
+    , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
+    , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
+    , (LMA_C._LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
+  --, (LMA_C._LM_ERROR_SINGULAR_MATRIX,                     we don't treat this as an error)
+  --, (LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           we don't treat this as an error)
+    ]
 
 convertLevMarError :: CInt -> LevMarError
 convertLevMarError err = fromMaybe (error "Unknown levmar error") $
