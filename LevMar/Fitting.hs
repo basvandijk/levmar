@@ -61,8 +61,8 @@ import NFunction    (NFunction, ComposeN, compose)
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
-{- | A function from @n@ parameters of type @r@ and an x-value of type
-@a@ to a value of type @r@.
+{- | A functional relation describing measurements represented as a function
+from @n@ parameters of type @r@ and an x-value of type @a@ to a value of type @r@.
 
 For example, the quadratic function @f(x) = a*x^2 + b*x + c@ can be
 written as:
@@ -111,7 +111,7 @@ levmar :: forall n k r a. (Nat n, ComposeN n, Nat k, LMA.LevMarable r)
        -> SizedList n r                          -- ^ Initial parameters
        -> [(a, r)]                               -- ^ Samples
        -> Integer                                -- ^ Maximum number of iterations
-       -> LMA.Options r                          -- ^ Options
+       -> LMA.Options r                          -- ^ Minimization options
        -> Maybe (SizedList n r)                  -- ^ Optional lower bounds
        -> Maybe (SizedList n r)                  -- ^ Optional upper bounds
        -> Maybe (LMA.LinearConstraints k n r)    -- ^ Optional linear constraints

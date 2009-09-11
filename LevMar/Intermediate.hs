@@ -57,9 +57,50 @@ import qualified Bindings.LevMar.CurryFriendly as LMA_C
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
+{- | A functional relation describing measurements represented as a function
+from a list of parameters of type @r@ to a list of @r@.
+
+ * Ensure that the length of the parameters list equals the length of the
+   initial parameters list in 'levmar'.
+
+ * Ensure that the length of the ouput list equals the length of the samples
+   list in 'levmar'.
+
+For example:
+
+@
+hatfldc :: Model Double
+hatfldc [p0, p1, p2, p3] = [ p0 - 1.0
+                           , p0 - sqrt p1
+                           , p1 - sqrt p2
+                           , p3 - 1.0
+                           ]
+@
+-}
 type Model r = [r] -> [r]
 
--- | See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+{- | The jacobian of the 'Model' function. Expressed as a function from a list
+of parameters of type @r@ to a list of lists of @r@.
+
+See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+
+ * Ensure that the length of the parameter list equals the length of the initial
+   parameter list in 'levmar'.
+
+ * Ensure that the output matrix has the dimension @n@/x/@m@ where @n@ is the
+   number of samples and @m@ is the number of parameters.
+
+For example the jacobian of the above @hatfldc@ model is:
+
+@
+hatfldc_jac :: Jacobian Double
+hatfldc_jac _ p1 p2 _ = [ [1.0,  0.0,           0.0,           0.0]
+                        , [1.0, -0.5 / sqrt p1, 0.0,           0.0]
+                        , [0.0,  1.0,          -0.5 / sqrt p2, 0.0]
+                        , [0.0,  0.0,           0.0,           1.0]
+                        ]
+@
+-}
 type Jacobian r = [r] -> [[r]]
 
 

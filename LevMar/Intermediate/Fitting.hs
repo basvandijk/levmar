@@ -47,9 +47,47 @@ import qualified LevMar.Intermediate as LMA_I
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
+{- | A functional relation describing measurements represented as a function
+from a list of parameters of type @r@ and an x-value of type @a@ to a value of
+type @r@.
+
+ * Ensure that the length of the parameters list equals the lenght of the initial
+   parameters list in 'levmar'.
+
+For example, the quadratic function @f(x) = a*x^2 + b*x + c@ can be
+written as:
+
+@
+quad :: 'Num' r => 'Model' r r
+quad [a, b, c] x = a*x^2 + b*x + c
+@
+-}
 type Model r a = [r] -> a -> r
 
--- | See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+{- | The jacobian of the 'Model' function. Expressed as a function from a list
+of parameters of type @r@ and an x-value of type @a@ to a vector of @n@ values
+of type @r@.
+
+See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+
+ * Ensure that the length of the parameters list equals the lenght of the initial
+   parameters list in 'levmar'.
+
+ * Ensure that the length of the output parameter derivatives list equals the
+   length of the input parameters list.
+
+For example, the jacobian of the above @quad@ model can be written as:
+
+@
+quadJacob :: 'Num' r => 'Jacobian' N3 r r
+quadJacob [_, _, _] x = [ x^2   -- with respect to a
+                        , x     -- with respect to b
+                        , 1     -- with respect to c
+                        ]
+@
+
+Notice you don't have to differentiate for @x@.
+-}
 type Jacobian r a = [r] -> a -> [r]
 
 

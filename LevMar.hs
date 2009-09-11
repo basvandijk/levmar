@@ -63,7 +63,11 @@ import Data.Either
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
-{- | A function from @n@ parameters of type @r@ to a list of @r@.
+{- | A functional relation describing measurements represented as a function
+from @n@ parameters of type @r@ to a list of @r@.
+
+ * Ensure that the length of the ouput list equals the length of the sample list
+   in 'levmar'.
 
 An example from /Demo.hs/:
 
@@ -81,9 +85,12 @@ hatfldc p0 p1 p2 p3 = [ p0 - 1.0
 type Model n r = NFunction n r [r]
 
 {- | The jacobian of the 'Model' function. Expressed as a function from
-@n@ parameters of type @r@ to a list of @n@-sized lists of @r@
+@n@ parameters of type @r@ to a list of @n@-sized lists of @r@.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+
+ * Ensure that the length of the ouput list equals the length of the sample list
+   in 'levmar'.
 
 For example the jacobian of the above @hatfldc@ model is:
 
