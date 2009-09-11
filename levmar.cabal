@@ -46,6 +46,13 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                .
                * LevMar.Fitting
                .
+               Each layer also has special variants that automatically compute
+               the jacobian using automatic differentiation:
+               .
+               * LevMar.Intermediate.AD
+               .
+               Note however that this feature is still very experimental.
+               .
 	       All modules are self-contained; i.e. each module
 	       re-exports all the things you need to work with it.
 	       .
@@ -69,9 +76,12 @@ source-repository head
 library
   build-depends: base >= 3 && < 4.2
                , bindings-levmar < 0.2
+               , vector-space >= 0.5.7 && < 0.6
+               , MemoTrie >= 0.4.5 && < 0.5
   exposed-modules: LevMar
                  , LevMar.Fitting
                  , LevMar.Intermediate
+                 , LevMar.Intermediate.AD
                  , LevMar.Intermediate.Fitting
                  , TypeLevelNat
                  , SizedList
