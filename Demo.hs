@@ -27,6 +27,9 @@ type Result n = Either LevMarError
                        , CovarMatrix n Double
                        )
 
+sqr :: Num a => a -> a
+sqr x = x*x
+
 --------------------------------------------------------------------------------
 -- Handy type synonyms for type-level naturals:
 
@@ -51,16 +54,16 @@ opts = defaultOpts { optStopNormInfJacTe = 1e-15
 -- global minimum at (1, 1)
 
 ros :: Model N2 Double
-ros p0 p1 = replicate ros_n ((1.0 - p0)**2 + ros_d*m**2)
+ros p0 p1 = replicate ros_n (sqr (1.0 - p0) + ros_d*sqr m)
     where
-      m = p1 - p0**2
+      m = p1 - sqr p0
 
 ros_jac :: Jacobian N2 Double
 ros_jac p0 p1 = replicate ros_n (p0d ::: p1d ::: Nil)
     where
       p0d = -2 + 2*p0 - 4*ros_d*m*p0
       p1d = 2*ros_d*m
-      m   = p1 - p0**2
+      m   = p1 - sqr p0
 
 ros_d :: Double
 ros_d = 105.0
@@ -91,7 +94,7 @@ run_ros = levmar ros
 -- global minimum at (1, 1)
 
 modros :: Model N2 Double
-modros p0 p1 = [ 10*(p1 - p0**2)
+modros p0 p1 = [ 10*(p1 - sqr p0)
                , 1.0 - p0
                , modros_lam
                ]
@@ -132,14 +135,14 @@ run_modros = levmar modros
 
 powell :: Model N2 Double
 powell p0 p1 = [ p0
-               , 10.0*p0 / m + 2*p1**2
+               , 10.0*p0 / m + 2*sqr p1
                ]
     where
       m = p0 + 0.1
 
 powell_jac :: Jacobian N2 Double
-powell_jac p0 p1 = [ 1.0        ::: 0.0    ::: Nil
-                   , 1.0 / m**2 ::: 4.0*p1 ::: Nil
+powell_jac p0 p1 = [ 1.0         ::: 0.0    ::: Nil
+                   , 1.0 / sqr m ::: 4.0*p1 ::: Nil
                    ]
     where
       m = p0 + 0.1
@@ -170,9 +173,9 @@ run_powell = levmar powell
 -- minimum at (1, 1, 1, 1)
 
 wood :: Model N4 Double
-wood p0 p1 p2 p3 = [ 10.0*(p1 - p0**2)
+wood p0 p1 p2 p3 = [ 10.0*(p1 - sqr p0)
                    , 1.0 - p0
-                   , sqrt 90.0*(p3 - p2**2)
+                   , sqrt 90.0*(p3 - sqr p2)
                    , 1.0 - p2
                    , sqrt 10.0*(p1 + p3 - 2.0)
                    , (p1 - p3) / sqrt 10.0
@@ -278,7 +281,7 @@ helval p0 p1 p2 = [ 10.0*(p2 - 10.0*theta)
     where
       m = atan (p1 / p0) / (2.0*pi)
 
-      tmp = p0**2 + p1**2
+      tmp = sqr p0 + sqr p1
 
       theta | p0 < 0.0  = m + 0.5
             | 0.0 < p0  = m
@@ -291,7 +294,7 @@ heval_jac p0 p1 _ = [ 50.0*p1 / (pi*tmp) ::: -50.0*p0 / (pi*tmp) ::: 10.0 ::: Ni
                     , 0.0                ::: 0.0                 ::: 1.0  ::: Nil
                     ]
     where
-      tmp = p0**2 + p1**2
+      tmp = sqr p0 + sqr p1
 
 helval_n :: Int
 helval_n = 3
@@ -323,7 +326,11 @@ run_helval = levmar helval
 -- constr3: p1 - p4          = 0
 
 bt3 :: Model N5 Double
-bt3 p0 p1 p2 p3 p4 = replicate bt3_n (t1**2 + t2**2 + t3**2 + t4**2)
+bt3 p0 p1 p2 p3 p4 = replicate bt3_n ( sqr t1
+                                     + sqr t2
+                                     + sqr t3
+                                     + sqr t4
+                                     )
     where
       t1 = p0 - p1
       t2 = p1 + p2 - 2.0
@@ -380,7 +387,9 @@ run_bt3 = levmar bt3
 -- constr1: p0 + 2*p1 + 3*p2 = 1
 
 hs28 :: Model N3 Double
-hs28 p0 p1 p2 = replicate hs28_n (t1**2 + t2**2)
+hs28 p0 p1 p2 = replicate hs28_n ( sqr t1
+                                 + sqr t2
+                                 )
     where
       t1 = p0 + p1
       t2 = p1 + p2
@@ -429,7 +438,10 @@ run_hs28 = levmar hs28
 -- constr2: p2 - 2*(p3 + p4)       = -3
 
 hs48 :: Model N5 Double
-hs48 p0 p1 p2 p3 p4 = replicate hs48_n (t1**2 + t2**2 + t3**2)
+hs48 p0 p1 p2 p3 p4 = replicate hs48_n ( sqr t1
+                                       + sqr t2
+                                       + sqr t3
+                                       )
     where
       t1 = p0 - 1.0
       t2 = p1 - p2
@@ -485,7 +497,11 @@ run_hs48 = levmar hs48
 -- constr3: p1 - p4          = 0
 
 hs51 :: Model N5 Double
-hs51 p0 p1 p2 p3 p4 = replicate hs51_n (t1**2 + t2**2 + t3**2 + t4**2)
+hs51 p0 p1 p2 p3 p4 = replicate hs51_n ( sqr t1
+                                       + sqr t2
+                                       + sqr t3
+                                       + sqr t4
+                                       )
     where
       t1 = p0 - p1
       t2 = p1 + p2 - 2.0
@@ -542,7 +558,7 @@ run_hs51 = levmar hs51
 -- constr1: p1 >= -1.5
 
 hs01 :: Model N2 Double
-hs01 p0 p1 = [ 10.0*(p1 - p0**2)
+hs01 p0 p1 = [ 10.0*(p1 - sqr p0)
              , 1.0 - p0
              ]
 
@@ -792,7 +808,7 @@ run_modhs52 = levmar modhs52
 
 mods235 :: Model N3 Double
 mods235 p0 p1 _ = [ 0.1*(p0 - 1.0)
-                  , p1 - p0**2
+                  , p1 - sqr p0
                   ]
 
 mods235_jac :: Jacobian N3 Double
@@ -851,9 +867,9 @@ run_mods235 = levmar mods235
 --    x[1]<=0.7;
 
 modbt7 :: Model N5 Double
-modbt7 p0 p1 _ _ _ = replicate modbt7_n (100.0*m**2 + n**2)
+modbt7 p0 p1 _ _ _ = replicate modbt7_n (100.0*sqr m + sqr n)
     where
-      m = p1 - p0**2
+      m = p1 - sqr p0
       n = p0 - 1.0
 
 modbt7_jac :: Jacobian N5 Double
@@ -866,7 +882,7 @@ modbt7_jac p0 p1 _ _ _ = replicate modbt7_n
                            ::: Nil
                          )
     where
-      m = p1 - p0**2
+      m = p1 - sqr p0
 
 modbt7_n :: Int
 modbt7_n = 5
