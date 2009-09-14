@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -50,9 +51,8 @@ import LevMar.Utils.AD  ( firstDeriv, constant, idDAt )
 
 -- From vector-space:
 import Data.Derivative  ( (:~>), (:>), powVal )
-import Data.VectorSpace ( VectorSpace, Scalar, AdditiveGroup )
+import Data.VectorSpace ( VectorSpace, Scalar )
 import Data.Basis       ( HasBasis, Basis )
-import Data.MemoTrie    ( HasTrie )
 
 
 --------------------------------------------------------------------------------
@@ -85,7 +85,8 @@ type SimpleModel r = Model r (r :~> r)
 -- | The Levenberg-Marquardt algorithm specialised for curve-fitting
 -- that automatically computes the 'Jacobian' using automatic
 -- differentiation of the model function.
-levmar :: ( HasBasis r
+levmar :: forall r a.
+          ( HasBasis r
           , Basis r ~ ()
           , VectorSpace (Scalar r)
           , LMA_I.LevMarable r
@@ -102,19 +103,13 @@ levmar :: ( HasBasis r
        -> Either LMA_I.LevMarError ([r], LMA_I.Info r, LMA_I.CovarMatrix r)
 
 levmar model = LMA_I.levmar (convertModel model) $ Just $ jacobianOf model
+    where
+      convertModel :: Model r a -> LMA_I.Model r a
+      convertModel f = \ps x -> powVal $ f (map constant ps) x undefined
 
-convertModel :: (HasBasis r, HasTrie (Basis r))
-             => Model r a -> LMA_I.Model r a
-convertModel model = \ps x -> powVal $ model (map constant ps) x undefined
-
-jacobianOf :: ( HasBasis r
-              , Basis r ~ ()
-              , HasTrie (Basis r)
-              , AdditiveGroup r
-              , VectorSpace (Scalar r)
-              ) => Model r a -> LMA_I.Jacobian r a
-jacobianOf model =
-    \ps x -> map (\(ix, p) -> firstDeriv $ model (idDAt ix ps) x p) $ zip [0..] ps
+      jacobianOf :: Model r a -> LMA_I.Jacobian r a
+      jacobianOf f =
+          \ps x -> map (\(ix, p) -> firstDeriv $ f (idDAt ix ps) x p) $ zip [0..] ps
 
 
 -- The End ---------------------------------------------------------------------

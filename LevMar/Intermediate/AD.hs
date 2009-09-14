@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -49,9 +50,8 @@ import LevMar.Utils.AD  ( firstDeriv, constant, idDAt )
 
 -- From vector-space:
 import Data.Derivative  ( (:~>), (:>), powVal )
-import Data.VectorSpace ( VectorSpace, Scalar, AdditiveGroup )
+import Data.VectorSpace ( VectorSpace, Scalar )
 import Data.Basis       ( HasBasis, Basis )
-import Data.MemoTrie    ( HasTrie )
 
 import Data.List        ( transpose )
 
@@ -88,7 +88,8 @@ type Model r = [r :~> r] -> [r :~> r]
 
 -- | The Levenberg-Marquardt algorithm that automatically computes the
 -- 'Jacobian' using automatic differentiation of the model function.
-levmar :: ( HasBasis r
+levmar :: forall r.
+          ( HasBasis r
           , Basis r ~ ()
           , VectorSpace (Scalar r)
           , LMA_I.LevMarable r
@@ -105,20 +106,15 @@ levmar :: ( HasBasis r
        -> Either LMA_I.LevMarError ([r], LMA_I.Info r, LMA_I.CovarMatrix r)
 
 levmar model = LMA_I.levmar (convertModel model) $ Just $ jacobianOf model
+    where
+      convertModel :: Model r -> LMA_I.Model r
+      (convertModel f) ps = map (\m -> powVal $ m undefined) $ f $ map constant ps
 
-convertModel :: (HasBasis r, HasTrie (Basis r)) => Model r -> LMA_I.Model r
-convertModel model = \ps -> map (\m -> powVal $ m undefined) $ model $ map constant ps
-
-jacobianOf :: ( HasBasis a
-              , Basis a ~ ()
-              , HasTrie (Basis a)
-              , AdditiveGroup a
-              , VectorSpace (Scalar a)
-              ) => Model a -> LMA_I.Jacobian a
-jacobianOf model =
-    \ps -> let pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
-           in map (\fs -> zipWith (firstDeriv .) fs ps) $
-                  transpose $ map model pDs
+      jacobianOf :: Model r -> LMA_I.Jacobian r
+      (jacobianOf f) ps = map (\fs -> zipWith (firstDeriv .) fs ps) $
+                              transpose $ map f pDs
+          where
+            pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
 
 
 -- The End ---------------------------------------------------------------------

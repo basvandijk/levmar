@@ -40,7 +40,7 @@ description:   The Levenberg-Marquardt algorithm is an iterative
 	       * LevMar: A high-level layer that uses type-level
                  programming to add extra type safety.
                .
-               Each layer also has special data-fitting variants:
+               Each layer also has special curve-fitting variants:
                .
 	       * LevMar.Intermediate.Fitting
                .
@@ -52,6 +52,8 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                * LevMar.Intermediate.AD
                .
 	       * LevMar.Intermediate.Fitting.AD
+               .
+               * LevMar.AD
                .
 	       * LevMar.Fitting.AD
 	       .
@@ -83,6 +85,7 @@ library
                , vector-space >= 0.5.7 && < 0.6
                , MemoTrie >= 0.4.5 && < 0.5
   exposed-modules: LevMar
+                 , LevMar.AD
                  , LevMar.Fitting
                  , LevMar.Fitting.AD
                  , LevMar.Intermediate

@@ -5,15 +5,14 @@
 
 --------------------------------------------------------------------------------
 -- |
--- Module      :  LevMar.Fitting.AD
+-- Module      :  LevMar.AD
 -- Copyright   :  (c) 2009 Roel van Dijk & Bas van Dijk
 -- License     :  BSD-style (see the file LICENSE)
 --
 -- Maintainer  :  vandijk.roel@gmail.com, v.dijk.bas@gmail.com
 -- Stability   :  Experimental
 --
--- This module provides the Levenberg-Marquardt algorithm specialised
--- for curve-fitting that uses Automatic Differentiation to
+-- A levmar variant that uses Automatic Differentiation to
 -- automatically compute the Jacobian.
 --
 -- For additional documentation see the documentation of the levmar C
@@ -22,10 +21,10 @@
 --
 --------------------------------------------------------------------------------
 
-module LevMar.Fitting.AD
-    ( -- * Model.
+
+module LevMar.AD
+    ( -- * Model
       Model
-    , SimpleModel
 
       -- * Levenberg-Marquardt algorithm.
     , LMA_I.LevMarable
@@ -35,7 +34,7 @@ module LevMar.Fitting.AD
     , noLinearConstraints
     , Matrix
 
-    -- * Minimization options.
+      -- * Minimization options.
     , LMA_I.Options(..)
     , LMA_I.defaultOpts
 
@@ -50,16 +49,17 @@ module LevMar.Fitting.AD
     , Z, S, Nat
     , SizedList(..)
     , NFunction
-    ) where
+    )
+    where
 
 
-import qualified LevMar.Intermediate.Fitting as LMA_I
+import qualified LevMar.Intermediate as LMA_I
 
 import LevMar.Utils ( LinearConstraints
                     , noLinearConstraints
-                    , convertLinearConstraints
                     , Matrix
                     , CovarMatrix
+                    , convertLinearConstraints
                     , convertResult
                     )
 
@@ -74,40 +74,42 @@ import Data.Derivative  ( (:~>), (:>), powVal )
 import Data.VectorSpace ( VectorSpace, Scalar )
 import Data.Basis       ( HasBasis, Basis )
 
+import Data.List        ( transpose )
+
 
 --------------------------------------------------------------------------------
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
 {- | A functional relation describing measurements represented as a
-function from @n@ parameters of type @r :~> r@ and an x-value of type
-@a@ to a value of type @r :~> r@.
+function from @n@ parameters of type @r :~> r@ to a list of @r :~> r@.
 
-For example, the quadratic function @f(x) = a*x^2 + b*x + c@ can be
-written as:
+ * Ensure that the length of the ouput list equals the length of the sample list
+   in 'levmar'.
+
+An example from /Demo.hs/:
 
 @
-type N3 = 'S' ('S' ('S' 'Z'))
+type N4 = 'S' ('S' ('S' ('S' 'Z')))
 
-quad :: 'Num' r => 'Model' N3 r (r :~> r)
-quad a b c x = a*x^2 + b*x + c
+hatfldc :: Model N4 Double
+hatfldc p0 p1 p2 p3 = [ p0 - 1.0
+                      , p0 - sqrt p1
+                      , p1 - sqrt p2
+                      , p3 - 1.0
+                      ]
 @
 -}
-type Model n r a = NFunction n (r :~> r) (a -> (r :~> r))
-
--- | This type synonym expresses that usually the @a@ in @'Model' n r a@
--- equals the type of the parameters.
-type SimpleModel n r = Model n r (r :~> r)
+type Model n r = NFunction n (r :~> r) [r :~> r]
 
 
 --------------------------------------------------------------------------------
 -- Levenberg-Marquardt algorithm.
 --------------------------------------------------------------------------------
 
--- | The Levenberg-Marquardt algorithm specialised for curve-fitting
--- that automatically computes the 'Jacobian' using automatic
--- differentiation of the model function.
-levmar :: forall n k r a.
+-- | The Levenberg-Marquardt algorithm that automatically computes the
+-- 'Jacobian' using automatic differentiation of the model function.
+levmar :: forall n k r.
           ( Nat n
           , Nat k
           , HasBasis r
@@ -115,15 +117,15 @@ levmar :: forall n k r a.
           , VectorSpace (Scalar r)
           , LMA_I.LevMarable r
           )
-       => (Model n r a)                       -- ^ Model
-       -> SizedList n r                       -- ^ Initial parameters
-       -> [(a, r)]                            -- ^ Samples
-       -> Integer                             -- ^ Maximum number of iterations
-       -> LMA_I.Options r                       -- ^ Minimization options
-       -> Maybe (SizedList n r)               -- ^ Optional lower bounds
-       -> Maybe (SizedList n r)               -- ^ Optional upper bounds
-       -> Maybe (LinearConstraints k n r)     -- ^ Optional linear constraints
-       -> Maybe (SizedList n r)               -- ^ Optional weights
+       => (Model n r)                     -- ^ Model
+       -> SizedList n r                   -- ^ Initial parameters
+       -> [r]                             -- ^ Samples
+       -> Integer                         -- ^ Maximum number of iterations
+       -> LMA_I.Options r                 -- ^ Minimization options
+       -> Maybe (SizedList n r)           -- ^ Optional lower bounds
+       -> Maybe (SizedList n r)           -- ^ Optional upper bounds
+       -> Maybe (LinearConstraints k n r) -- ^ Optional linear constraints
+       -> Maybe (SizedList n r)           -- ^ Optional weights
        -> Either LMA_I.LevMarError (SizedList n r, LMA_I.Info r, CovarMatrix n r)
 
 levmar model params ys itMax opts mLowBs mUpBs mLinC mWghts =
@@ -138,19 +140,20 @@ levmar model params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel :: Model n r a -> LMA_I.Model r a
-      (convertModel f) ps x = powVal $ (f $* pDs :: a -> r :~> r) x undefined
+      convertModel :: Model n r -> LMA_I.Model r
+      (convertModel f) ps = fmap (\m -> powVal $ m undefined) (f $* pDs :: [r :~> r])
           where
             pDs :: SizedList n (r :~> r)
             pDs = unsafeFromList $ fmap constant ps
 
-      jacobianOf :: Model n r a -> LMA_I.Jacobian r a
-      (jacobianOf f) ps x = fmap combine $ zip [0..] ps
+      jacobianOf :: Model n r -> LMA_I.Jacobian r
+      (jacobianOf f) ps = fmap (\fs -> zipWith (firstDeriv .) fs ps)
+                        . transpose
+                        . fmap (\pD -> f $* (pD :: SizedList n (r :~> r))::[r :~> r])
+                        $ pDs
           where
-            combine (ix, p) = firstDeriv $ (f $* pDs :: a -> r :~> r) x p
-                where
-                  pDs :: SizedList n (r :~> r)
-                  pDs = unsafeFromList $ idDAt ix ps
+            pDs :: [SizedList n (r :~> r)]
+            pDs = [unsafeFromList $ idDAt n ps | n <- [0 .. length ps - 1]]
 
 
 -- The End ---------------------------------------------------------------------
