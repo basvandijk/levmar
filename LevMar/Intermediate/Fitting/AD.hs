@@ -46,13 +46,13 @@ module LevMar.Intermediate.Fitting.AD
 
 import qualified LevMar.Intermediate.Fitting as LMA_I
 
-import LevMar.Utils.AD  (firstDeriv, constant, idDAt)
+import LevMar.Utils.AD  ( firstDeriv, constant, idDAt )
 
 -- From vector-space:
-import Data.Derivative  ((:~>), (:>), powVal, idD, pureD, derivAtBasis)
-import Data.VectorSpace (VectorSpace, Scalar, AdditiveGroup)
-import Data.Basis       (HasBasis, Basis)
-import Data.MemoTrie    (HasTrie)
+import Data.Derivative  ( (:~>), (:>), powVal )
+import Data.VectorSpace ( VectorSpace, Scalar, AdditiveGroup )
+import Data.Basis       ( HasBasis, Basis )
+import Data.MemoTrie    ( HasTrie )
 
 
 --------------------------------------------------------------------------------
@@ -103,7 +103,8 @@ levmar :: ( HasBasis r
 
 levmar model = LMA_I.levmar (convertModel model) $ Just $ jacobianOf model
 
-convertModel :: (HasBasis r, HasTrie (Basis r)) => Model r a -> LMA_I.Model r a
+convertModel :: (HasBasis r, HasTrie (Basis r))
+             => Model r a -> LMA_I.Model r a
 convertModel model = \ps x -> powVal $ model (map constant ps) x undefined
 
 jacobianOf :: ( HasBasis r

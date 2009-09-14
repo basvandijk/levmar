@@ -42,12 +42,12 @@ module LevMar.Intermediate
     ) where
 
 
-import Foreign.Marshal.Array (allocaArray, peekArray, pokeArray, withArray)
-import Foreign.Ptr           (Ptr, nullPtr, plusPtr)
-import Foreign.Storable      (Storable)
-import Foreign.C.Types       (CInt)
-import System.IO.Unsafe      (unsafePerformIO)
-import Data.Maybe            (fromJust, fromMaybe, isJust)
+import Foreign.Marshal.Array ( allocaArray, peekArray, pokeArray, withArray )
+import Foreign.Ptr           ( Ptr, nullPtr, plusPtr )
+import Foreign.Storable      ( Storable )
+import Foreign.C.Types       ( CInt )
+import System.IO.Unsafe      ( unsafePerformIO )
+import Data.Maybe            ( fromJust, fromMaybe, isJust )
 import Control.Monad.Instances -- for 'instance Functor (Either a)'
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
@@ -266,8 +266,7 @@ gen_levmar f_der
                                  withArray (map realToFrac rhcVec) $ \rhcVecPtr ->
                                    f $ g cMatPtr rhcVecPtr $ fromIntegral $ length cMat
 
-      withWeights f g = maybeWithArray ((fmap . fmap) realToFrac mWeights) $ \weightsPtr ->
-                          f $ g weightsPtr
+      withWeights f g = maybeWithArray ((fmap . fmap) realToFrac mWeights) $ f . g
 
 convertModel :: (Real r, Fractional r, Storable c, Real c, Fractional c)
              =>  Model r -> LMA_C.Model c

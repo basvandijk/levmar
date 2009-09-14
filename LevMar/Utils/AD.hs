@@ -4,10 +4,10 @@
 
 module LevMar.Utils.AD where
 
-import Data.Derivative  ((:~>), (:>), powVal, idD, pureD, derivAtBasis)
-import Data.VectorSpace (VectorSpace, Scalar, AdditiveGroup)
-import Data.Basis       (HasBasis, Basis)
-import Data.MemoTrie    (HasTrie)
+import Data.Derivative  ( (:~>), (:>), powVal, idD, pureD, derivAtBasis )
+import Data.VectorSpace ( VectorSpace, Scalar, AdditiveGroup )
+import Data.Basis       ( HasBasis, Basis )
+import Data.MemoTrie    ( HasTrie )
 
 -- | @firstDeriv f@ returns the first derivative of @f@.
 firstDeriv :: (HasBasis a, Basis a ~ (), AdditiveGroup b)
@@ -33,6 +33,6 @@ replace i r xs
     | i < 0     = xs
     | otherwise = rep i xs
   where rep _ [] = []
-        rep i (x:xs)
-          | i > 0     = x : rep (i - 1) xs
-          | otherwise = r : xs
+        rep j (y:ys)
+          | j > 0     = y : rep (j - 1) ys
+          | otherwise = r : ys

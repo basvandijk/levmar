@@ -45,15 +45,15 @@ module LevMar.Intermediate.AD
 
 import qualified LevMar.Intermediate as LMA_I
 
-import LevMar.Utils.AD  (firstDeriv, constant, idDAt)
+import LevMar.Utils.AD  ( firstDeriv, constant, idDAt )
 
 -- From vector-space:
-import Data.Derivative  ((:~>), (:>), powVal)
-import Data.VectorSpace (VectorSpace, Scalar, AdditiveGroup)
-import Data.Basis       (HasBasis, Basis)
-import Data.MemoTrie    (HasTrie)
+import Data.Derivative  ( (:~>), (:>), powVal )
+import Data.VectorSpace ( VectorSpace, Scalar, AdditiveGroup )
+import Data.Basis       ( HasBasis, Basis )
+import Data.MemoTrie    ( HasTrie )
 
-import Data.List        (transpose)
+import Data.List        ( transpose )
 
 
 --------------------------------------------------------------------------------
@@ -117,7 +117,7 @@ jacobianOf :: ( HasBasis a
               ) => Model a -> LMA_I.Jacobian a
 jacobianOf model =
     \ps -> let pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
-           in map (\fs -> zipWith (\f p -> firstDeriv $ f p) fs ps) $
+           in map (\fs -> zipWith (firstDeriv .) fs ps) $
                   transpose $ map model pDs
 
 

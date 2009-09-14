@@ -53,6 +53,8 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                .
 	       * LevMar.Intermediate.Fitting.AD
                .
+	       * LevMar.Fitting.AD
+	       .
                Note however that this feature is still very experimental.
                .
 	       All modules are self-contained; i.e. each module
@@ -82,6 +84,7 @@ library
                , MemoTrie >= 0.4.5 && < 0.5
   exposed-modules: LevMar
                  , LevMar.Fitting
+                 , LevMar.Fitting.AD
                  , LevMar.Intermediate
                  , LevMar.Intermediate.AD
                  , LevMar.Intermediate.Fitting
@@ -89,5 +92,6 @@ library
                  , TypeLevelNat
                  , SizedList
                  , NFunction
-  other-modules: LevMar.Utils.AD
+  other-modules:   LevMar.Utils
+                 , LevMar.Utils.AD
   ghc-options: -Wall -O2

@@ -10,9 +10,9 @@ module SizedList
     , replicate
     ) where
 
-import Prelude hiding (replicate, length)
-import Data.Maybe     (fromMaybe)
-import TypeLevelNat   (Z(..), S(..), Nat, induction, witnessNat, N(..))
+import Prelude hiding ( replicate, length )
+import Data.Maybe     ( fromMaybe )
+import TypeLevelNat   ( Z(..), S(..), Nat, induction, witnessNat, N(..) )
 
 -- | A list which is indexed with a type-level natural that denotes the size of
 -- the list.
@@ -42,9 +42,14 @@ toList = unToList $ induction (witnessNat :: n)
     where
       tl0 :: SizedList Z a -> [a]
       tl0 Nil = []
+      tl0 _   = canNeverHappen
 
       tlS :: forall x. Nat x => (SizedList x a -> [a]) -> SizedList (S x) a -> [a]
       tlS f (x ::: xs) = x : f xs
+      tlS _ _          = canNeverHappen
+
+canNeverHappen :: error
+canNeverHappen = error "SizedList.toList: can never happen!"
 
 newtype FromList a n = FromList { unFromList :: [a] -> Maybe (SizedList n a) }
 

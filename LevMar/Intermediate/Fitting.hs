@@ -19,6 +19,7 @@
 module LevMar.Intermediate.Fitting
     ( -- * Model & Jacobian.
       Model
+    , SimpleModel
     , Jacobian
 
       -- * Levenberg-Marquardt algorithm.
@@ -63,6 +64,10 @@ quad [a, b, c] x = a*x^2 + b*x + c
 @
 -}
 type Model r a = [r] -> a -> r
+
+-- | This type synonym expresses that usually the @a@ in @'Model' r a@
+-- equals the type of the parameters.
+type SimpleModel r = Model r r
 
 {- | The jacobian of the 'Model' function. Expressed as a function from a list
 of parameters of type @r@ and an x-value of type @a@ to a vector of @n@ values

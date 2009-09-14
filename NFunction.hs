@@ -8,8 +8,8 @@ module NFunction
     , compose
     ) where
 
-import TypeLevelNat (Z(..), S(..), Nat)
-import SizedList    (SizedList(..))
+import TypeLevelNat ( Z(..), S(..), Nat )
+import SizedList    ( SizedList(..) )
 
 -- | A @NFunction n a b@ is a function which takes @n@ arguments of
 -- type @a@ and returns a @b@.
