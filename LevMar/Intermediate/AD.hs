@@ -45,7 +45,10 @@ module LevMar.Intermediate.AD
 
 import qualified LevMar.Intermediate as LMA_I
 
-import Data.Derivative  ((:~>), (:>), powVal, idD, pureD, derivAtBasis)
+import LevMar.Utils.AD  (firstDeriv, constant, idDAt)
+
+-- From vector-space:
+import Data.Derivative  ((:~>), (:>), powVal)
 import Data.VectorSpace (VectorSpace, Scalar, AdditiveGroup)
 import Data.Basis       (HasBasis, Basis)
 import Data.MemoTrie    (HasTrie)
@@ -116,31 +119,6 @@ jacobianOf model =
     \ps -> let pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
            in map (\fs -> zipWith (\f p -> firstDeriv $ f p) fs ps) $
                   transpose $ map model pDs
-
--- | @idDAt n ps@ maps each parameter in @ps@ to a /constant/
--- infinitely differentiable function (@const . pureD@), except the @n@th
--- parameter is replaced with the differentiable /identity/ function
--- (@idD@).
-idDAt ::(HasBasis r, HasTrie (Basis r), VectorSpace (Scalar r)) => Int -> [r] -> [r :~> r]
-idDAt n = replace n idD . map constant
-
--- | @firstDeriv f@ returns the first derivative of @f@.
-firstDeriv :: (HasBasis a, Basis a ~ (), AdditiveGroup b) => (a :> b) -> b
-firstDeriv f = powVal $ derivAtBasis f ()
-
--- | A constant infinitely differentiable function.
-constant :: (AdditiveGroup b, HasBasis a, HasTrie (Basis a)) => b -> a:~>b
-constant = const . pureD
-
--- | @replace i r xs@ replaces the @i@th element in @xs@ with @r@.
-replace :: Int -> a -> [a] -> [a]
-replace i r xs
-    | i < 0     = xs
-    | otherwise = rep i xs
-  where rep _ [] = []
-        rep i (x:xs)
-          | i > 0     = x : rep (i - 1) xs
-          | otherwise = r : xs
 
 
 -- The End ---------------------------------------------------------------------
