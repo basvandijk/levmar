@@ -24,7 +24,7 @@
 
 module LevMar.AD
     ( -- * Model
-      Model
+      LMA.Model
 
       -- * Levenberg-Marquardt algorithm.
     , LMA_I.LevMarable
@@ -53,6 +53,7 @@ module LevMar.AD
     where
 
 
+import qualified LevMar              as LMA
 import qualified LevMar.Intermediate as LMA_I
 
 import LevMar.Utils ( LinearConstraints
@@ -78,37 +79,15 @@ import Data.List        ( transpose )
 
 
 --------------------------------------------------------------------------------
--- Model & Jacobian.
---------------------------------------------------------------------------------
-
-{- | A functional relation describing measurements represented as a
-function from @n@ parameters of type @r :~> r@ to a list of @r :~> r@.
-
- * Ensure that the length of the ouput list equals the length of the sample list
-   in 'levmar'.
-
-An example from /Demo.hs/:
-
-@
-type N4 = 'S' ('S' ('S' ('S' 'Z')))
-
-hatfldc :: Model N4 Double
-hatfldc p0 p1 p2 p3 = [ p0 - 1.0
-                      , p0 - sqrt p1
-                      , p1 - sqrt p2
-                      , p3 - 1.0
-                      ]
-@
--}
-type Model n r = NFunction n (r :~> r) [r :~> r]
-
-
---------------------------------------------------------------------------------
 -- Levenberg-Marquardt algorithm.
 --------------------------------------------------------------------------------
 
 -- | The Levenberg-Marquardt algorithm that automatically computes the
 -- 'Jacobian' using automatic differentiation of the model function.
+--
+-- /Warning/: Don't apply 'levmar' to 'LMA.Model's that apply methods of
+-- the 'Eq' and 'Ord' classes to the parameters. These methods are
+-- undefined for ':~>'!!!
 levmar :: forall n k r.
           ( Nat n
           , Nat k
@@ -117,7 +96,9 @@ levmar :: forall n k r.
           , VectorSpace (Scalar r)
           , LMA_I.LevMarable r
           )
-       => (Model n r)                     -- ^ Model
+       => (LMA.Model n (r :~> r))         -- ^ Model. Note that ':~>'
+                                          --   is overloaded for all the
+                                          --   numeric classes.
        -> SizedList n r                   -- ^ Initial parameters
        -> [r]                             -- ^ Samples
        -> Integer                         -- ^ Maximum number of iterations
@@ -140,13 +121,13 @@ levmar model params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel :: Model n r -> LMA_I.Model r
+      convertModel :: LMA.Model n (r :~> r) -> LMA_I.Model r
       (convertModel f) ps = fmap (\m -> powVal $ m undefined) (f $* pDs :: [r :~> r])
           where
             pDs :: SizedList n (r :~> r)
             pDs = unsafeFromList $ fmap constant ps
 
-      jacobianOf :: Model n r -> LMA_I.Jacobian r
+      jacobianOf :: LMA.Model n (r :~> r) -> LMA_I.Jacobian r
       (jacobianOf f) ps = fmap (\fs -> zipWith (firstDeriv .) fs ps)
                         . transpose
                         . fmap (\pD -> f $* (pD :: SizedList n (r :~> r))::[r :~> r])

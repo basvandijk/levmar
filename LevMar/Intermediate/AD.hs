@@ -23,7 +23,7 @@
 
 module LevMar.Intermediate.AD
     ( -- * Model.
-      Model
+      LMA_I.Model
 
       -- * Levenberg-Marquardt algorithm.
     , LMA_I.LevMarable
@@ -57,44 +57,25 @@ import Data.List        ( transpose )
 
 
 --------------------------------------------------------------------------------
--- Model
---------------------------------------------------------------------------------
-
-{- | A functional relation describing measurements.
-
- * Ensure that the length of the parameters list equals the length of the initial
-   parameters list in 'levmar'.
-
- * Ensure that the length of the ouput list equals the length of the samples list
-   in 'levmar'.
-
-For example:
-
-@
-hatfldc :: Model Double
-hatfldc [p0, p1, p2, p3] = [ p0 - 1.0
-                           , p0 - sqrt p1
-                           , p1 - sqrt p2
-                           , p3 - 1.0
-                           ]
-@
--}
-type Model r = [r :~> r] -> [r :~> r]
-
-
---------------------------------------------------------------------------------
 -- Levenberg-Marquardt algorithm.
 --------------------------------------------------------------------------------
 
 -- | The Levenberg-Marquardt algorithm that automatically computes the
 -- 'Jacobian' using automatic differentiation of the model function.
+--
+-- /Warning/: Don't apply 'levmar' to 'LMA_I.Model's that apply methods of
+-- the 'Eq' and 'Ord' classes to the parameters. These methods are
+-- undefined for ':~>'!!!
 levmar :: forall r.
           ( HasBasis r
           , Basis r ~ ()
           , VectorSpace (Scalar r)
           , LMA_I.LevMarable r
           )
-       => Model r                           -- ^ Model
+       => LMA_I.Model (r :~> r)             -- ^ Model. Note that
+                                            --   ':~>' is overloaded
+                                            --   for all the numeric
+                                            --   classes.
        -> [r]                               -- ^ Initial parameters
        -> [r]                               -- ^ Samples
        -> Integer                           -- ^ Maximum iterations
@@ -107,10 +88,10 @@ levmar :: forall r.
 
 levmar model = LMA_I.levmar (convertModel model) $ Just $ jacobianOf model
     where
-      convertModel :: Model r -> LMA_I.Model r
-      (convertModel f) ps = map (\m -> powVal $ m undefined) $ f $ map constant ps
+      convertModel :: LMA_I.Model (r :~> r) -> LMA_I.Model r
+      convertModel f = map (\m -> powVal $ m undefined) . f . map constant
 
-      jacobianOf :: Model r -> LMA_I.Jacobian r
+      jacobianOf :: LMA_I.Model (r :~> r) -> LMA_I.Jacobian r
       (jacobianOf f) ps = map (\fs -> zipWith (firstDeriv .) fs ps) $
                               transpose $ map f pDs
           where

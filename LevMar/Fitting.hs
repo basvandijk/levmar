@@ -23,6 +23,7 @@ module LevMar.Fitting
       Model
     , SimpleModel
     , Jacobian
+    , SimpleJacobian
 
       -- * Levenberg-Marquardt algorithm.
     , LMA_I.LevMarable
@@ -109,6 +110,10 @@ quadJacob _ _ _ x =   x^2   -- with respect to a
 Notice you don't have to differentiate for @x@.
 -}
 type Jacobian n r a = NFunction n r (a -> SizedList n r)
+
+-- | This type synonym expresses that usually the @a@ in @'Jacobian' n r a@
+-- equals the type of the parameters.
+type SimpleJacobian n r = Jacobian n r r
 
 
 --------------------------------------------------------------------------------
