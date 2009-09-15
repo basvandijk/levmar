@@ -9,6 +9,10 @@ import Data.VectorSpace ( VectorSpace, Scalar, AdditiveGroup )
 import Data.Basis       ( HasBasis, Basis )
 import Data.MemoTrie    ( HasTrie )
 
+
+value :: a :~> b -> b
+value m = powVal $ m undefined
+
 -- | @firstDeriv f@ returns the first derivative of @f@.
 firstDeriv :: (HasBasis a, Basis a ~ (), AdditiveGroup b)
            => (a :> b) -> b

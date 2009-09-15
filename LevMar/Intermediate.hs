@@ -58,7 +58,7 @@ import qualified Bindings.LevMar.CurryFriendly as LMA_C
 --------------------------------------------------------------------------------
 
 {- | A functional relation describing measurements represented as a function
-from a list of parameters of type @r@ to a list of @r@.
+from a list of parameters to a list of expected measurements.
 
  * Ensure that the length of the parameters list equals the length of the
    initial parameters list in 'levmar'.
@@ -80,7 +80,8 @@ hatfldc [p0, p1, p2, p3] = [ p0 - 1.0
 type Model r = [r] -> [r]
 
 {- | The jacobian of the 'Model' function. Expressed as a function from a list
-of parameters of type @r@ to a list of lists of @r@.
+of parameters to a list of lists which for each expected measurement describes
+the partial derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 

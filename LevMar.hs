@@ -72,49 +72,44 @@ import Data.Either
 --------------------------------------------------------------------------------
 
 {- | A functional relation describing measurements represented as a function
-from @n@ parameters of type @r@ to a list of @r@.
-
- * Ensure that the length of the ouput list equals the length of the sample list
-   in 'levmar'.
+from @m@ parameters to @n@ expected measurements.
 
 An example from /Demo.hs/:
 
 @
 type N4 = 'S' ('S' ('S' ('S' 'Z')))
 
-hatfldc :: Model N4 Double
-hatfldc p0 p1 p2 p3 = [ p0 - 1.0
-                      , p0 - sqrt p1
-                      , p1 - sqrt p2
-                      , p3 - 1.0
-                      ]
+hatfldc :: Model N4 N4 Double
+hatfldc p0 p1 p2 p3 =     p0 - 1.0
+                      ::: p0 - sqrt p1
+                      ::: p1 - sqrt p2
+                      ::: p3 - 1.0
+                      ::: Nil
 @
 -}
-type Model n r = NFunction n r [r]
+type Model m n r = NFunction m r (SizedList n r)
 
-{- | The jacobian of the 'Model' function. Expressed as a function from
-@n@ parameters of type @r@ to a list of @n@-sized lists of @r@.
+{- | The jacobian of the 'Model' function. Expressed as a function from @m@
+parameters to a @n@/x/@m@ matrix which for each expected measurement describes
+the partial derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
-
- * Ensure that the length of the ouput list equals the length of the sample list
-   in 'levmar'.
 
 For example the jacobian of the above @hatfldc@ model is:
 
 @
 type N4 = 'S' ('S' ('S' ('S' 'Z')))
 
-hatfldc_jac :: Jacobian N4 Double
-hatfldc_jac _ p1 p2 _ = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil
-                        , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil
-                        , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil
-                        , 0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil
-                        ]
+hatfldc_jac :: Jacobian N4 N4 Double
+hatfldc_jac _ p1 p2 _ =     (1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil)
+                        ::: (1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil)
+                        ::: (0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil)
+                        ::: (0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil)
+                        ::: Nil
 @
 -}
 
-type Jacobian n r = NFunction n r [SizedList n r]
+type Jacobian m n r = NFunction m r (Matrix n m r)
 
 
 --------------------------------------------------------------------------------
@@ -122,24 +117,24 @@ type Jacobian n r = NFunction n r [SizedList n r]
 --------------------------------------------------------------------------------
 
 -- | The Levenberg-Marquardt algorithm.
-levmar :: forall n k r. (Nat n, Nat k, LMA_I.LevMarable r)
-       => (Model n r)                     -- ^ Model
-       -> Maybe (Jacobian n r)            -- ^ Optional jacobian
-       -> SizedList n r                   -- ^ Initial parameters
-       -> [r]                             -- ^ Samples
+levmar :: forall m n k r. (Nat m, Nat n, Nat k, LMA_I.LevMarable r)
+       => (Model m n r)                   -- ^ Model
+       -> Maybe (Jacobian m n r)          -- ^ Optional jacobian
+       -> SizedList m r                   -- ^ Initial parameters
+       -> SizedList n r                   -- ^ Samples
        -> Integer                         -- ^ Maximum number of iterations
        -> LMA_I.Options r                 -- ^ Minimization options
-       -> Maybe (SizedList n r)           -- ^ Optional lower bounds
-       -> Maybe (SizedList n r)           -- ^ Optional upper bounds
-       -> Maybe (LinearConstraints k n r) -- ^ Optional linear constraints
-       -> Maybe (SizedList n r)           -- ^ Optional weights
-       -> Either LMA_I.LevMarError (SizedList n r, LMA_I.Info r, CovarMatrix n r)
+       -> Maybe (SizedList m r)           -- ^ Optional lower bounds
+       -> Maybe (SizedList m r)           -- ^ Optional upper bounds
+       -> Maybe (LinearConstraints k m r) -- ^ Optional linear constraints
+       -> Maybe (SizedList m r)           -- ^ Optional weights
+       -> Either LMA_I.LevMarError (SizedList m r, LMA_I.Info r, CovarMatrix m r)
 
 levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
     fmap convertResult $ LMA_I.levmar (convertModel model)
                                       (fmap convertJacob mJac)
                                       (toList params)
-                                      ys
+                                      (toList ys)
                                       itMax
                                       opts
                                       (fmap toList mLowBs)
@@ -147,8 +142,8 @@ levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel f = \ps ->             f $* (unsafeFromList ps :: SizedList n r)
-      convertJacob f = \ps -> map toList (f $* (unsafeFromList ps :: SizedList n r) :: [SizedList n r])
+      convertModel f = \ps -> toList (f $* (unsafeFromList ps :: SizedList m r) :: SizedList n r)
+      convertJacob f = \ps -> toList (fmap toList (f $* (unsafeFromList ps :: SizedList m r) :: Matrix n m r))
 
 
 -- The End ---------------------------------------------------------------------

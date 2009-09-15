@@ -50,8 +50,7 @@ import qualified LevMar.Intermediate as LMA_I
 --------------------------------------------------------------------------------
 
 {- | A functional relation describing measurements represented as a function
-from a list of parameters of type @r@ and an x-value of type @a@ to a value of
-type @r@.
+from a list of parameters and an x-value to an expected measurement.
 
  * Ensure that the length of the parameters list equals the lenght of the initial
    parameters list in 'levmar'.
@@ -71,8 +70,7 @@ type Model r a = [r] -> a -> r
 type SimpleModel r = Model r r
 
 {- | The jacobian of the 'Model' function. Expressed as a function from a list
-of parameters of type @r@ and an x-value of type @a@ to a vector of @n@ values
-of type @r@.
+of parameters and an x-value to the partial derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 
@@ -118,13 +116,16 @@ levmar :: LMA_I.LevMarable r
        -> Maybe (LMA_I.LinearConstraints r) -- ^ Optional linear constraints
        -> Maybe [r]                         -- ^ Optional weights
        -> Either LMA_I.LevMarError ([r], LMA_I.Info r, LMA_I.CovarMatrix r)
-levmar model mJac ps samples =
-    LMA_I.levmar (\ps' -> map (model ps') xs)
-                 (fmap (\jac -> \ps' -> map (jac ps') xs) mJac)
-                 ps
+levmar model mJac params samples =
+    LMA_I.levmar (convertModel model)
+                 (fmap convertJacob mJac)
+                 params
                  ys
         where
           (xs, ys) = unzip samples
+
+          convertModel mdl = \ps -> map (mdl ps) xs
+          convertJacob jac = \ps -> map (jac ps) xs
 
 
 -- The End ---------------------------------------------------------------------

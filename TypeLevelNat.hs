@@ -16,6 +16,7 @@ module TypeLevelNat
     , witnessNat
 
     , N(..)
+    , nat
     ) where
 
 
@@ -76,6 +77,9 @@ witnessNat = theWitness
 data N n where
     Zero :: N Z
     Succ :: N n -> N (S n)
+
+nat :: forall n. Nat n => n -> N n
+nat n = induction n Zero Succ
 
 {-
 Template Haskell code to construct a type synonym for an arbitrary

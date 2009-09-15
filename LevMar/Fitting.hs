@@ -70,7 +70,7 @@ import NFunction    ( NFunction, ($*) )
 --------------------------------------------------------------------------------
 
 {- | A functional relation describing measurements represented as a function
-from @n@ parameters of type @r@ and an x-value of type @a@ to a value of type @r@.
+from @m@ parameters and an x-value to an expected measurement.
 
 For example, the quadratic function @f(x) = a*x^2 + b*x + c@ can be
 written as:
@@ -82,15 +82,14 @@ quad :: 'Num' r => 'Model' N3 r r
 quad a b c x = a*x^2 + b*x + c
 @
 -}
-type Model n r a = NFunction n r (a -> r)
+type Model m r a = NFunction m r (a -> r)
 
--- | This type synonym expresses that usually the @a@ in @'Model' n r a@
+-- | This type synonym expresses that usually the @a@ in @'Model' m r a@
 -- equals the type of the parameters.
-type SimpleModel n r = Model n r r
+type SimpleModel m r = Model m r r
 
-{- | The jacobian of the 'Model' function. Expressed as a function from
-@n@ parameters of type @r@ and an x-value of type @a@ to a vector
-of @n@ values of type @r@.
+{- | The jacobian of the 'Model' function. Expressed as a function from @n@
+parameters and an x-value to the @n@ partial derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 
@@ -109,11 +108,11 @@ quadJacob _ _ _ x =   x^2   -- with respect to a
 
 Notice you don't have to differentiate for @x@.
 -}
-type Jacobian n r a = NFunction n r (a -> SizedList n r)
+type Jacobian m r a = NFunction m r (a -> SizedList m r)
 
--- | This type synonym expresses that usually the @a@ in @'Jacobian' n r a@
+-- | This type synonym expresses that usually the @a@ in @'Jacobian' m r a@
 -- equals the type of the parameters.
-type SimpleJacobian n r = Jacobian n r r
+type SimpleJacobian m r = Jacobian m r r
 
 
 --------------------------------------------------------------------------------
@@ -121,18 +120,18 @@ type SimpleJacobian n r = Jacobian n r r
 --------------------------------------------------------------------------------
 
 -- | The Levenberg-Marquardt algorithm specialised for curve-fitting.
-levmar :: forall n k r a. (Nat n, Nat k, LMA_I.LevMarable r)
-       => (Model n r a)                          -- ^ Model
-       -> Maybe (Jacobian n r a)                 -- ^ Optional jacobian
-       -> SizedList n r                          -- ^ Initial parameters
+levmar :: forall m k r a. (Nat m, Nat k, LMA_I.LevMarable r)
+       => (Model m r a)                          -- ^ Model
+       -> Maybe (Jacobian m r a)                 -- ^ Optional jacobian
+       -> SizedList m r                          -- ^ Initial parameters
        -> [(a, r)]                               -- ^ Samples
        -> Integer                                -- ^ Maximum number of iterations
-       -> LMA_I.Options r                          -- ^ Minimization options
-       -> Maybe (SizedList n r)                  -- ^ Optional lower bounds
-       -> Maybe (SizedList n r)                  -- ^ Optional upper bounds
-       -> Maybe (LinearConstraints k n r)    -- ^ Optional linear constraints
-       -> Maybe (SizedList n r)                  -- ^ Optional weights
-       -> Either LMA_I.LevMarError (SizedList n r, LMA_I.Info r, CovarMatrix n r)
+       -> LMA_I.Options r                        -- ^ Minimization options
+       -> Maybe (SizedList m r)                  -- ^ Optional lower bounds
+       -> Maybe (SizedList m r)                  -- ^ Optional upper bounds
+       -> Maybe (LinearConstraints k m r)        -- ^ Optional linear constraints
+       -> Maybe (SizedList m r)                  -- ^ Optional weights
+       -> Either LMA_I.LevMarError (SizedList m r, LMA_I.Info r, CovarMatrix m r)
 levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
     fmap convertResult $ LMA_I.levmar (convertModel model)
                                       (fmap convertJacob mJac)
@@ -145,8 +144,8 @@ levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel f = \ps   ->           f $* (unsafeFromList ps :: SizedList n r)
-      convertJacob f = \ps x -> toList (((f $* (unsafeFromList ps :: SizedList n r)) x) :: SizedList n r)
+      convertModel mdl = \ps   ->           mdl $* (unsafeFromList ps :: SizedList m r)
+      convertJacob jac = \ps x -> toList (((jac $* (unsafeFromList ps :: SizedList m r)) x) :: SizedList m r)
 
 
 -- The End ---------------------------------------------------------------------

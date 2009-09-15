@@ -10,9 +10,13 @@ module SizedList
     , replicate
     ) where
 
+
 import Prelude hiding ( replicate, length )
 import Data.Maybe     ( fromMaybe )
 import TypeLevelNat   ( Z(..), S(..), Nat, induction, witnessNat, N(..) )
+
+
+--------------------------------------------------------------------------------
 
 -- | A list which is indexed with a type-level natural that denotes the size of
 -- the list.
@@ -20,7 +24,14 @@ data SizedList n a where
    Nil   :: SizedList Z a
    (:::) :: a -> SizedList n a -> SizedList (S n) a
 
+instance Functor (SizedList n) where
+    fmap _ Nil        = Nil
+    fmap f (x ::: xs) = f x ::: fmap f xs
+
 infixr 5 ::: -- Same precedence and associativity as (:)
+
+
+--------------------------------------------------------------------------------
 
 consPrecedence :: Int
 consPrecedence = 5
@@ -32,17 +43,20 @@ instance Show a => Show (SizedList n a) where
                            . showString " ::: "
                            . showsPrec consPrecedence xs
 
-newtype ToList a n = ToList { unToList :: SizedList n a -> [a] }
+
+--------------------------------------------------------------------------------
+
+newtype ToList a n = TL { unTL :: SizedList n a -> [a] }
 
 -- | Convert a @SizedList@ to a normal list.
 toList :: forall a n. Nat n => SizedList n a -> [a]
-toList = unToList $ induction (witnessNat :: n)
-                              (ToList tl0)
-                              (ToList . tlS . unToList)
+toList = unTL $ induction (witnessNat :: n)
+                          (TL tlZ)
+                          (TL . tlS . unTL)
     where
-      tl0 :: SizedList Z a -> [a]
-      tl0 Nil = []
-      tl0 _   = canNeverHappen
+      tlZ :: SizedList Z a -> [a]
+      tlZ Nil = []
+      tlZ _   = canNeverHappen
 
       tlS :: forall x. Nat x => (SizedList x a -> [a]) -> SizedList (S x) a -> [a]
       tlS f (x ::: xs) = x : f xs
@@ -51,17 +65,20 @@ toList = unToList $ induction (witnessNat :: n)
 canNeverHappen :: error
 canNeverHappen = error "SizedList.toList: can never happen!"
 
-newtype FromList a n = FromList { unFromList :: [a] -> Maybe (SizedList n a) }
 
--- | Convert a normal list to a @SizeList@. If the length of the given
+--------------------------------------------------------------------------------
+
+newtype FromList a n = FL { unFL :: [a] -> Maybe (SizedList n a) }
+
+-- | Convert a normal list to a @SizedList@. If the length of the given
 -- list does not equal @n@, @Nothing@ is returned.
 fromList :: forall a n. Nat n => [a] -> Maybe (SizedList n a)
-fromList = unFromList $ induction (witnessNat :: n)
-                                  (FromList fl0)
-                                  (FromList . flS . unFromList)
+fromList = unFL $ induction (witnessNat :: n)
+                            (FL flZ)
+                            (FL . flS . unFL)
     where
-      fl0 [] = Just Nil
-      fl0 _  = Nothing
+      flZ [] = Just Nil
+      flZ _  = Nothing
 
       flS _ []     = Nothing
       flS k (x:xs) = fmap (x :::) $ k xs
@@ -72,10 +89,23 @@ unsafeFromList :: forall a n. Nat n => [a] -> SizedList n a
 unsafeFromList = fromMaybe (error "unsafeFromList xs: xs does not have the right length ") .
                  fromList
 
-replicate :: N n -> a -> SizedList n a
-replicate Zero     _ = Nil
-replicate (Succ n) x = x ::: replicate n x
 
+--------------------------------------------------------------------------------
+
+newtype Replicate a n = R { unR :: SizedList n a}
+
+-- | @replicate x :: SizedList n a@ returns a @SizedList@ of @n@ @x@s.
+replicate :: forall a n. Nat n => a -> SizedList n a
+replicate x = unR $ induction (witnessNat :: n)
+                              (R Nil)
+                              (R . (x :::) . unR)
+
+--------------------------------------------------------------------------------
+
+-- | Returns the length of the @SizedList@.
 length :: SizedList n a -> N n
 length Nil        = Zero
 length (_ ::: xs) = Succ $ length xs
+
+
+-- The End ---------------------------------------------------------------------

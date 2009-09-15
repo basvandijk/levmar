@@ -24,6 +24,8 @@ import qualified LevMar.AD         as AD
 import qualified LevMar.Fitting    as Fitting
 import qualified LevMar.Fitting.AD as Fitting.AD
 
+import qualified SizedList as SL (replicate)
+
 
 --------------------------------------------------------------------------------
 
@@ -53,6 +55,7 @@ type N2 = S N1
 type N3 = S N2
 type N4 = S N3
 type N5 = S N4
+type N6 = S N5
 
 --------------------------------------------------------------------------------
 -- Default options:
@@ -67,13 +70,13 @@ opts = defaultOpts { optStopNormInfJacTe = 1e-15
 -- Rosenbrock function,
 -- global minimum at (1, 1)
 
-ros :: Floating r => Model N2 r
-ros p0 p1 = replicate ros_n (sqr (1.0 - p0) + ros_d*sqr m)
+ros :: Floating r => Model N2 N2 r
+ros p0 p1 = SL.replicate (sqr (1.0 - p0) + ros_d*sqr m)
     where
       m = p1 - sqr p0
 
-ros_jac :: Floating r => Jacobian N2 r
-ros_jac p0 p1 = replicate ros_n (p0d ::: p1d ::: Nil)
+ros_jac :: Floating r => Jacobian N2 N2 r
+ros_jac p0 p1 = SL.replicate (p0d ::: p1d ::: Nil)
     where
       p0d = -2 + 2*p0 - 4*ros_d*m*p0
       p1d = 2*ros_d*m
@@ -82,14 +85,15 @@ ros_jac p0 p1 = replicate ros_n (p0d ::: p1d ::: Nil)
 ros_d :: Floating r => r
 ros_d = 105.0
 
-ros_n :: Int
-ros_n = 2
-
 ros_params :: Floating r => SizedList N2 r
 ros_params = -1.2 ::: 1.0 ::: Nil
 
-ros_samples :: Floating r => [r]
-ros_samples = replicate ros_n 0.0
+ros_samples :: Floating r => SizedList N2 r
+ros_samples = SL.replicate 0.0
+
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !! TODO: These return with: infStopReason = MaxIterations !!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 run_ros :: IO ()
 run_ros = printInteresting $
@@ -133,29 +137,26 @@ run_ros_autojac = printInteresting $
 -- Modified Rosenbrock problem,
 -- global minimum at (1, 1)
 
-modros :: Floating r => Model N2 r
-modros p0 p1 = [ 10*(p1 - sqr p0)
-               , 1.0 - p0
-               , modros_lam
-               ]
+modros :: Floating r => Model N2 N3 r
+modros p0 p1 =     10*(p1 - sqr p0)
+               ::: 1.0 - p0
+               ::: modros_lam
+               ::: Nil
 
-modros_jac :: Floating r => Jacobian N2 r
-modros_jac p0 _ = [ -20*p0 ::: 10.0 ::: Nil
-                  , -1.0   ::: 0.0  ::: Nil
-                  , 0.0    ::: 0.0  ::: Nil
-                  ]
+modros_jac :: Floating r => Jacobian N2 N3 r
+modros_jac p0 _ =     (-20*p0 ::: 10.0 ::: Nil)
+                  ::: (-1.0   ::: 0.0  ::: Nil)
+                  ::: (0.0    ::: 0.0  ::: Nil)
+                  ::: Nil
 
 modros_lam :: Floating r => r
 modros_lam = 1e02
 
-modros_n :: Int
-modros_n = 3
-
 modros_params :: Floating r => SizedList N2 r
 modros_params = -1.2 ::: 1.0 ::: Nil
 
-modros_samples :: Floating r => [r]
-modros_samples = replicate modros_n 0.0
+modros_samples :: Floating r => SizedList N3 r
+modros_samples = SL.replicate 0.0
 
 run_modros :: IO ()
 run_modros = printInteresting $
@@ -199,28 +200,25 @@ run_modros_autojac = printInteresting $
 -- Powell's function,
 -- minimum at (0, 0)
 
-powell :: Floating r => Model N2 r
-powell p0 p1 = [ p0
-               , 10.0*p0 / m + 2*sqr p1
-               ]
+powell :: Floating r => Model N2 N2 r
+powell p0 p1 =     p0
+               ::: 10.0*p0 / m + 2*sqr p1
+               ::: Nil
     where
       m = p0 + 0.1
 
-powell_jac :: Floating r => Jacobian N2 r
-powell_jac p0 p1 = [ 1.0         ::: 0.0    ::: Nil
-                   , 1.0 / sqr m ::: 4.0*p1 ::: Nil
-                   ]
+powell_jac :: Floating r => Jacobian N2 N2 r
+powell_jac p0 p1 =     (1.0         ::: 0.0    ::: Nil)
+                   ::: (1.0 / sqr m ::: 4.0*p1 ::: Nil)
+                   ::: Nil
     where
       m = p0 + 0.1
-
-powell_n :: Int
-powell_n = 2
 
 powell_params :: Floating r => SizedList N2 r
 powell_params = -1.2 ::: 1.0 ::: Nil
 
-powell_samples :: Floating r => [r]
-powell_samples = replicate powell_n 0.0
+powell_samples :: Floating r => SizedList N2 r
+powell_samples = SL.replicate 0.0
 
 run_powell :: IO ()
 run_powell = printInteresting $
@@ -264,23 +262,20 @@ run_powell_autojac = printInteresting $
 -- Wood's function,
 -- minimum at (1, 1, 1, 1)
 
-wood :: Floating r => Model N4 r
-wood p0 p1 p2 p3 = [ 10.0*(p1 - sqr p0)
-                   , 1.0 - p0
-                   , sqrt 90.0*(p3 - sqr p2)
-                   , 1.0 - p2
-                   , sqrt 10.0*(p1 + p3 - 2.0)
-                   , (p1 - p3) / sqrt 10.0
-                   ]
-
-wood_n :: Int
-wood_n = 6
+wood :: Floating r => Model N4 N6 r
+wood p0 p1 p2 p3 =     10.0*(p1 - sqr p0)
+                   ::: 1.0 - p0
+                   ::: sqrt 90.0*(p3 - sqr p2)
+                   ::: 1.0 - p2
+                   ::: sqrt 10.0*(p1 + p3 - 2.0)
+                   ::: (p1 - p3) / sqrt 10.0
+                   ::: Nil
 
 wood_params :: Floating r => SizedList N4 r
 wood_params =  -3.0 ::: -1.0 ::: -3.0 ::: -1.0 ::: Nil
 
-wood_samples :: Floating r => [r]
-wood_samples = replicate wood_n 0.0
+wood_samples :: Floating r => SizedList N6 r
+wood_samples = SL.replicate 0.0
 
 run_wood :: IO ()
 run_wood = printInteresting $
@@ -324,9 +319,6 @@ meyer_jac p0 p1 p2 x =     tmp
     where
       tmp = exp (10.0*p1 / (ui + p2) - 13.0)
       ui = 0.45 + 0.05*x
-
-meyer_n :: Int
-meyer_n = 16
 
 meyer_params :: Floating r => SizedList N3 r
 meyer_params = 8.85 ::: 4.0 ::: 2.5 ::: Nil
@@ -394,11 +386,11 @@ run_meyer_autojac = printInteresting $
 -- helical valley function,
 -- minimum at (1.0, 0.0, 0.0)
 
-helval :: (Ord r, Floating r) => Model N3 r
-helval p0 p1 p2 = [ 10.0*(p2 - 10.0*theta)
-                  , 10.0*sqrt tmp - 1.0
-                  , p2
-                  ]
+helval :: (Ord r, Floating r) => Model N3 N3 r
+helval p0 p1 p2 =     10.0*(p2 - 10.0*theta)
+                  ::: 10.0*sqrt tmp - 1.0
+                  ::: p2
+                  ::: Nil
     where
       m = atan (p1 / p0) / (2.0*pi)
 
@@ -409,22 +401,19 @@ helval p0 p1 p2 = [ 10.0*(p2 - 10.0*theta)
             | p1 >= 0   = 0.25
             | otherwise = -0.25
 
-heval_jac :: Floating r => Jacobian N3 r
-heval_jac p0 p1 _ = [ 50.0*p1 / (pi*tmp) ::: -50.0*p0 / (pi*tmp) ::: 10.0 ::: Nil
-                    , 10.0*p0 / sqrt tmp :::  10.0*p1 / sqrt tmp ::: 0.0  ::: Nil
-                    , 0.0                ::: 0.0                 ::: 1.0  ::: Nil
-                    ]
+heval_jac :: Floating r => Jacobian N3 N3 r
+heval_jac p0 p1 _ =     (50.0*p1 / (pi*tmp) ::: -50.0*p0 / (pi*tmp) ::: 10.0 ::: Nil)
+                    ::: (10.0*p0 / sqrt tmp :::  10.0*p1 / sqrt tmp ::: 0.0  ::: Nil)
+                    ::: (0.0                :::  0.0                ::: 1.0  ::: Nil)
+                    ::: Nil
     where
       tmp = sqr p0 + sqr p1
-
-helval_n :: Int
-helval_n = 3
 
 helval_params :: Floating r => SizedList N3 r
 helval_params = -1.0 ::: 0.0 ::: 0.0 ::: Nil
 
-helval_samples :: Floating r => [r]
-helval_samples = replicate helval_n 0.0
+helval_samples :: Floating r => SizedList N3 r
+helval_samples = SL.replicate 0.0
 
 run_helval :: IO ()
 run_helval = printInteresting $
@@ -473,40 +462,37 @@ run_helval_autojac = printInteresting $
 -- constr2: p2 + p3 - 2*p4 = 0
 -- constr3: p1 - p4          = 0
 
-bt3 :: Floating r => Model N5 r
-bt3 p0 p1 p2 p3 p4 = replicate bt3_n ( sqr t1
-                                     + sqr t2
-                                     + sqr t3
-                                     + sqr t4
-                                     )
+bt3 :: Floating r => Model N5 N5 r
+bt3 p0 p1 p2 p3 p4 = SL.replicate ( sqr t1
+                                  + sqr t2
+                                  + sqr t3
+                                  + sqr t4
+                                  )
     where
       t1 = p0 - p1
       t2 = p1 + p2 - 2.0
       t3 = p3 - 1.0
       t4 = p4 - 1.0
 
-bt3_jac :: Floating r => Jacobian N5 r
-bt3_jac p0 p1 p2 p3 p4 = replicate bt3_n (   2.0*t1
-                                         ::: 2.0*(t2 - t1)
-                                         ::: 2.0*t2
-                                         ::: 2.0*t3
-                                         ::: 2.0*t4
-                                         ::: Nil
-                                         )
+bt3_jac :: Floating r => Jacobian N5 N5 r
+bt3_jac p0 p1 p2 p3 p4 = SL.replicate (   2.0*t1
+                                      ::: 2.0*(t2 - t1)
+                                      ::: 2.0*t2
+                                      ::: 2.0*t3
+                                      ::: 2.0*t4
+                                      ::: Nil
+                                      )
     where
       t1 = p0 - p1
       t2 = p1 + p2 - 2.0
       t3 = p3 - 1.0
       t4 = p4 - 1.0
-
-bt3_n :: Int
-bt3_n = 5
 
 bt3_params :: Floating r => SizedList N5 r
 bt3_params = 2.0 ::: 2.0 ::: 2.0 :::2.0 ::: 2.0 ::: Nil
 
-bt3_samples :: Floating r => [r]
-bt3_samples = replicate bt3_n 0.0
+bt3_samples :: Floating r => SizedList N5 r
+bt3_samples = SL.replicate 0.0
 
 bt3_linear_constraints :: Floating r => LinearConstraints N3 N5 r
 bt3_linear_constraints = (     (1.0 ::: 3.0 ::: 0.0 ::: 0.0 :::  0.0 ::: Nil)
@@ -560,32 +546,29 @@ run_bt3_autojac = printInteresting $
 --
 -- constr1: p0 + 2*p1 + 3*p2 = 1
 
-hs28 :: Floating r => Model N3 r
-hs28 p0 p1 p2 = replicate hs28_n ( sqr t1
-                                 + sqr t2
+hs28 :: Floating r => Model N3 N3 r
+hs28 p0 p1 p2 = SL.replicate ( sqr t1
+                             + sqr t2
+                             )
+    where
+      t1 = p0 + p1
+      t2 = p1 + p2
+
+hs28_jac :: Floating r => Jacobian N3 N3 r
+hs28_jac p0 p1 p2 = SL.replicate (   2.0*t1
+                                 ::: 2.0*(t1 + t2)
+                                 ::: 2.0*t2
+                                 ::: Nil
                                  )
     where
       t1 = p0 + p1
       t2 = p1 + p2
 
-hs28_jac :: Floating r => Jacobian N3 r
-hs28_jac p0 p1 p2 = replicate hs28_n (     2.0*t1
-                                       ::: 2.0*(t1 + t2)
-                                       ::: 2.0*t2
-                                       ::: Nil
-                                     )
-    where
-      t1 = p0 + p1
-      t2 = p1 + p2
-
-hs28_n :: Int
-hs28_n = 3
-
 hs28_params :: Floating r => SizedList N3 r
 hs28_params = -4.0 ::: 1.0 ::: 1.0 ::: Nil
 
-hs28_samples :: Floating r => [r]
-hs28_samples = replicate hs28_n 0.0
+hs28_samples :: Floating r => SizedList N3 r
+hs28_samples = SL.replicate 0.0
 
 hs28_linear_constraints :: Floating r => LinearConstraints N1 N3 r
 hs28_linear_constraints = ( ((1.0 ::: 2.0 ::: 3.0 ::: Nil) ::: Nil)
@@ -637,37 +620,34 @@ run_hs28_autojac = printInteresting $
 -- constr1: sum [p0, p1, p2, p3, p4] = 5
 -- constr2: p2 - 2*(p3 + p4)       = -3
 
-hs48 :: Floating r => Model N5 r
-hs48 p0 p1 p2 p3 p4 = replicate hs48_n ( sqr t1
-                                       + sqr t2
-                                       + sqr t3
+hs48 :: Floating r => Model N5 N5 r
+hs48 p0 p1 p2 p3 p4 = SL.replicate ( sqr t1
+                                   + sqr t2
+                                   + sqr t3
+                                   )
+    where
+      t1 = p0 - 1.0
+      t2 = p1 - p2
+      t3 = p3 - p4
+
+hs48_jac :: Floating r => Jacobian N5 N5 r
+hs48_jac p0 p1 p2 p3 p4 = SL.replicate (    2.0*t1
+                                       :::  2.0*t2
+                                       ::: -2.0*t2
+                                       :::  2.0*t3
+                                       ::: -2.0*t3
+                                       ::: Nil
                                        )
     where
       t1 = p0 - 1.0
       t2 = p1 - p2
       t3 = p3 - p4
 
-hs48_jac :: Floating r => Jacobian N5 r
-hs48_jac p0 p1 p2 p3 p4 = replicate hs48_n (      2.0*t1
-                                             :::  2.0*t2
-                                             ::: -2.0*t2
-                                             :::  2.0*t3
-                                             ::: -2.0*t3
-                                             ::: Nil
-                                           )
-    where
-      t1 = p0 - 1.0
-      t2 = p1 - p2
-      t3 = p3 - p4
-
-hs48_n :: Int
-hs48_n = 3
-
 hs48_params :: Floating r => SizedList N5 r
 hs48_params = 3.0 ::: 5.0 ::: -3.0 ::: 2.0 ::: -2.0 ::: Nil
 
-hs48_samples :: Floating r => [r]
-hs48_samples = replicate hs48_n 0.0
+hs48_samples :: Floating r => SizedList N5 r
+hs48_samples = SL.replicate 0.0
 
 hs48_linear_constraints :: Floating r => LinearConstraints N2 N5 r
 hs48_linear_constraints = (     (1.0 ::: 1.0 ::: 1.0 :::  1.0 :::  1.0 ::: Nil)
@@ -722,11 +702,25 @@ run_hs48_autojac = printInteresting $
 -- constr2: p2 + p3 - 2*p4 = 0
 -- constr3: p1 - p4          = 0
 
-hs51 :: Floating r => Model N5 r
-hs51 p0 p1 p2 p3 p4 = replicate hs51_n ( sqr t1
-                                       + sqr t2
-                                       + sqr t3
-                                       + sqr t4
+hs51 :: Floating r => Model N5 N5 r
+hs51 p0 p1 p2 p3 p4 = SL.replicate ( sqr t1
+                                   + sqr t2
+                                   + sqr t3
+                                   + sqr t4
+                                   )
+    where
+      t1 = p0 - p1
+      t2 = p1 + p2 - 2.0
+      t3 = p3 - 1.0
+      t4 = p4 - 1.0
+
+hs51_jac :: Floating r => Jacobian N5 N5 r
+hs51_jac p0 p1 p2 p3 p4 = SL.replicate (   2.0*t1
+                                       ::: 2.0*(t2 - t1)
+                                       ::: 2.0*t2
+                                       ::: 2.0*t3
+                                       ::: 2.0*t4
+                                       ::: Nil
                                        )
     where
       t1 = p0 - p1
@@ -734,28 +728,11 @@ hs51 p0 p1 p2 p3 p4 = replicate hs51_n ( sqr t1
       t3 = p3 - 1.0
       t4 = p4 - 1.0
 
-hs51_jac :: Floating r => Jacobian N5 r
-hs51_jac p0 p1 p2 p3 p4 = replicate hs51_n (     2.0*t1
-                                             ::: 2.0*(t2 - t1)
-                                             ::: 2.0*t2
-                                             ::: 2.0*t3
-                                             ::: 2.0*t4
-                                             ::: Nil
-                                           )
-    where
-      t1 = p0 - p1
-      t2 = p1 + p2 - 2.0
-      t3 = p3 - 1.0
-      t4 = p4 - 1.0
-
-hs51_n :: Int
-hs51_n = 5
-
 hs51_params :: Floating r => SizedList N5 r
 hs51_params = 2.5 ::: 0.5 ::: 2.0 ::: -1.0 ::: 0.5 ::: Nil
 
-hs51_samples :: Floating r => [r]
-hs51_samples = replicate hs51_n 0.0
+hs51_samples :: Floating r => SizedList N5 r
+hs51_samples = SL.replicate 0.0
 
 hs51_linear_constraints :: Floating r => LinearConstraints N3 N5 r
 hs51_linear_constraints = (     (1.0 ::: 3.0 ::: 0.0 ::: 0.0 :::  0.0 ::: Nil)
@@ -809,24 +786,21 @@ run_hs51_autojac = printInteresting $
 --
 -- constr1: p1 >= -1.5
 
-hs01 :: Floating r => Model N2 r
-hs01 p0 p1 = [ 10.0*(p1 - sqr p0)
-             , 1.0 - p0
-             ]
+hs01 :: Floating r => Model N2 N2 r
+hs01 p0 p1 =     10.0*(p1 - sqr p0)
+             ::: 1.0 - p0
+             ::: Nil
 
-hs01_jac :: Floating r => Jacobian N2 r
-hs01_jac p0 _ = [ -20.0*p0 ::: 10.0 ::: Nil
-                , -1.0     ::: 0.0  ::: Nil
-                ]
-
-hs01_n :: Int
-hs01_n = 2
+hs01_jac :: Floating r => Jacobian N2 N2 r
+hs01_jac p0 _ =     (-20.0*p0 ::: 10.0 ::: Nil)
+                ::: (-1.0     ::: 0.0  ::: Nil)
+                ::: Nil
 
 hs01_params :: Floating r => SizedList N2 r
 hs01_params = -2.0 ::: 1.0 ::: Nil
 
-hs01_samples :: Floating r => [r]
-hs01_samples = replicate hs01_n 0.0
+hs01_samples :: Floating r => SizedList N2 r
+hs01_samples = SL.replicate 0.0
 
 hs01_lb, hs01_ub :: Floating r => SizedList N2 r
 hs01_lb = -_DBL_MAX ::: -1.5     ::: Nil
@@ -883,22 +857,21 @@ run_hs01_autojac = printInteresting $
 -- Original HS21 has the additional constraint 10*p0 - p1 >= 10
 -- which is inactive at the solution, so it is dropped here.
 
-hs21 :: Floating r => Model N2 r
-hs21 p0 p1 = [p0 / 10.0, p1]
+hs21 :: Floating r => Model N2 N2 r
+hs21 p0 p1 =     p0 / 10.0
+             ::: p1
+             ::: Nil
 
-hs21_jac :: Floating r => Jacobian N2 r
-hs21_jac _ _ = [ 0.1 ::: 0.0 ::: Nil
-               , 0.0 ::: 1.0 ::: Nil
-               ]
-
-hs21_n :: Int
-hs21_n = 2
+hs21_jac :: Floating r => Jacobian N2 N2 r
+hs21_jac _ _ =     (0.1 ::: 0.0 ::: Nil)
+               ::: (0.0 ::: 1.0 ::: Nil)
+               ::: Nil
 
 hs21_params :: Floating r => SizedList N2 r
 hs21_params = -1.0 ::: -1.0 ::: Nil
 
-hs21_samples :: Floating r => [r]
-hs21_samples = replicate hs21_n 0.0
+hs21_samples :: Floating r => SizedList N2 r
+hs21_samples = SL.replicate 0.0
 
 hs21_lb, hs21_ub :: Floating r => SizedList N2 r
 hs21_lb = 2.0  ::: -50.0 ::: Nil
@@ -949,28 +922,25 @@ run_hs21_autojac = printInteresting $
 -- constri: pi >= 0.0 (i=1..4)
 -- constr5: p1 <= 0.8
 
-hatfldb :: Floating r => Model N4 r
-hatfldb p0 p1 p2 p3 = [ p0 - 1.0
-                      , p0 - sqrt p1
-                      , p1 - sqrt p2
-                      , p2 - sqrt p3
-                      ]
+hatfldb :: Floating r => Model N4 N4 r
+hatfldb p0 p1 p2 p3 =     p0 - 1.0
+                      ::: p0 - sqrt p1
+                      ::: p1 - sqrt p2
+                      ::: p2 - sqrt p3
+                      ::: Nil
 
-hatfldb_jac :: Floating r => Jacobian N4 r
-hatfldb_jac _ p1 p2 p3 = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0            ::: Nil
-                         , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0            ::: Nil
-                         , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0            ::: Nil
-                         , 0.0 ::: 0.0            ::: 1.0            ::: -0.5 / sqrt p3 ::: Nil
-                         ]
-
-hatfldb_n :: Int
-hatfldb_n = 4
+hatfldb_jac :: Floating r => Jacobian N4 N4 r
+hatfldb_jac _ p1 p2 p3 =     (1.0 ::: 0.0            ::: 0.0            ::: 0.0            ::: Nil)
+                         ::: (1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0            ::: Nil)
+                         ::: (0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0            ::: Nil)
+                         ::: (0.0 ::: 0.0            ::: 1.0            ::: -0.5 / sqrt p3 ::: Nil)
+                         ::: Nil
 
 hatfldb_params :: Floating r => SizedList N4 r
 hatfldb_params = 0.1 ::: 0.1 ::: 0.1 ::: 0.1 ::: Nil
 
-hatfldb_samples :: Floating r => [r]
-hatfldb_samples = replicate hatfldb_n 0.0
+hatfldb_samples :: Floating r => SizedList N4 r
+hatfldb_samples = SL.replicate 0.0
 
 hatfldb_lb, hatfldb_ub :: Floating r => SizedList N4 r
 hatfldb_lb = 0.0      ::: 0.0 ::: 0.0      ::: 0.0      ::: Nil
@@ -1021,28 +991,25 @@ run_hatfldb_autojac = printInteresting $
 -- constri:   pi >= 0.0  (i=1..4)
 -- constri+4: pi <= 10.0 (i=1..4)
 
-hatfldc :: Floating r => Model N4 r
-hatfldc p0 p1 p2 p3 = [ p0 - 1.0
-                      , p0 - sqrt p1
-                      , p1 - sqrt p2
-                      , p3 - 1.0
-                      ]
+hatfldc :: Floating r => Model N4 N4 r
+hatfldc p0 p1 p2 p3 =     p0 - 1.0
+                      ::: p0 - sqrt p1
+                      ::: p1 - sqrt p2
+                      ::: p3 - 1.0
+                      ::: Nil
 
-hatfldc_jac :: Floating r => Jacobian N4 r
-hatfldc_jac _ p1 p2 _ = [ 1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil
-                        , 1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil
-                        , 0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil
-                        , 0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil
-                        ]
-
-hatfldc_n :: Int
-hatfldc_n = 4
+hatfldc_jac :: Floating r => Jacobian N4 N4 r
+hatfldc_jac _ p1 p2 _ =     (1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil)
+                        ::: (1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil)
+                        ::: (0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil)
+                        ::: (0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil)
+                        ::: Nil
 
 hatfldc_params :: Floating r => SizedList N4 r
 hatfldc_params = 0.9 ::: 0.9 ::: 0.9 ::: 0.9 ::: Nil
 
-hatfldc_samples :: Floating r => [r]
-hatfldc_samples = replicate hatfldc_n 0.0
+hatfldc_samples :: Floating r => SizedList N4 r
+hatfldc_samples = SL.replicate 0.0
 
 hatfldc_lb, hatfldc_ub :: Floating r => SizedList N4 r
 hatfldc_lb =  0.0 :::  0.0 :::  0.0 :::  0.0 ::: Nil
@@ -1101,28 +1068,25 @@ run_hatfldc_autojac = printInteresting $
 -- constr7:  -0.2 <= p3 <= 0.3
 -- constr8:   0.0 <= p4 <= 0.3
 
-modhs52 :: Floating r => Model N5 r
-modhs52 p0 p1 p2 p3 p4 = [ 4.0*p0 - p1
-                         , p1 + p2 - 2.0
-                         , p3 - 1.0
-                         , p4 - 1.0
-                         ]
+modhs52 :: Floating r => Model N5 N4 r
+modhs52 p0 p1 p2 p3 p4 =     4.0*p0 - p1
+                         ::: p1 + p2 - 2.0
+                         ::: p3 - 1.0
+                         ::: p4 - 1.0
+                         ::: Nil
 
-modhs52_jac :: Floating r => Jacobian N5 r
-modhs52_jac _ _ _ _ _ = [ 4.0 ::: -1.0 ::: 0.0 ::: 0.0 ::: 0.0 ::: Nil
-                        , 0.0 :::  1.0 ::: 1.0 ::: 0.0 ::: 0.0 ::: Nil
-                        , 0.0 :::  0.0 ::: 0.0 ::: 1.0 ::: 0.0 ::: Nil
-                        , 0.0 :::  0.0 ::: 0.0 ::: 0.0 ::: 1.0 ::: Nil
-                        ]
-
-modhs52_n :: Int
-modhs52_n = 4
+modhs52_jac :: Floating r => Jacobian N5 N4 r
+modhs52_jac _ _ _ _ _ =     (4.0 ::: -1.0 ::: 0.0 ::: 0.0 ::: 0.0 ::: Nil)
+                        ::: (0.0 :::  1.0 ::: 1.0 ::: 0.0 ::: 0.0 ::: Nil)
+                        ::: (0.0 :::  0.0 ::: 0.0 ::: 1.0 ::: 0.0 ::: Nil)
+                        ::: (0.0 :::  0.0 ::: 0.0 ::: 0.0 ::: 1.0 ::: Nil)
+                        ::: Nil
 
 modhs52_params :: Floating r => SizedList N5 r
 modhs52_params = 2.0 ::: 2.0 ::: 2.0 ::: 2.0 ::: 2.0 ::: Nil
 
-modhs52_samples :: Floating r => [r]
-modhs52_samples = replicate modhs52_n 0.0
+modhs52_samples :: Floating r => SizedList N4 r
+modhs52_samples = SL.replicate 0.0
 
 modhs52_linear_constraints :: Floating r => LinearConstraints N3 N5 r
 modhs52_linear_constraints = (     (1.0 ::: 3.0 ::: 0.0 ::: 0.0 :::  0.0 ::: Nil)
@@ -1188,24 +1152,21 @@ run_modhs52_autojac = printInteresting $
 -- constr3: 0.1 <= p1 <= 2.9
 -- constr4: 0.7 <= p2
 
-mods235 :: Floating r => Model N3 r
-mods235 p0 p1 _ = [ 0.1*(p0 - 1.0)
-                  , p1 - sqr p0
-                  ]
+mods235 :: Floating r => Model N3 N2 r
+mods235 p0 p1 _ =     0.1*(p0 - 1.0)
+                  ::: p1 - sqr p0
+                  ::: Nil
 
-mods235_jac :: Floating r => Jacobian N3 r
-mods235_jac p0 _ _ = [ 0.1     ::: 0.0 ::: 0.0 ::: Nil
-                     , -2.0*p0 ::: 1.0 ::: 0.0 ::: Nil
-                     ]
-
-mods235_n :: Int
-mods235_n = 2
+mods235_jac :: Floating r => Jacobian N3 N2 r
+mods235_jac p0 _ _ =     (0.1     ::: 0.0 ::: 0.0 ::: Nil)
+                     ::: (-2.0*p0 ::: 1.0 ::: 0.0 ::: Nil)
+                     ::: Nil
 
 mods235_params :: Floating r => SizedList N3 r
 mods235_params = -2.0 ::: 3.0 ::: 1.0 ::: Nil
 
-mods235_samples :: Floating r => [r]
-mods235_samples = replicate mods235_n 0.0
+mods235_samples :: Floating r => SizedList N2 r
+mods235_samples = SL.replicate 0.0
 
 mods235_linear_constraints :: Floating r => LinearConstraints N2 N3 r
 mods235_linear_constraints = (     (1.0 ::: 0.0 :::  1.0 ::: Nil)
@@ -1275,14 +1236,14 @@ run_mods235_autojac = printInteresting $
 -- subject to cons5:
 --    x[1]<=0.7;
 
-modbt7 :: Floating r => Model N5 r
-modbt7 p0 p1 _ _ _ = replicate modbt7_n (100.0*sqr m + sqr n)
+modbt7 :: Floating r => Model N5 N5 r
+modbt7 p0 p1 _ _ _ = SL.replicate (100.0*sqr m + sqr n)
     where
       m = p1 - sqr p0
       n = p0 - 1.0
 
-modbt7_jac :: Floating r => Jacobian N5 r
-modbt7_jac p0 p1 _ _ _ = replicate modbt7_n
+modbt7_jac :: Floating r => Jacobian N5 N5 r
+modbt7_jac p0 p1 _ _ _ = SL.replicate
                          (    -400.0*m*p0 + 2.0*p0 - 2.0
                            ::: 200.0*m
                            ::: 0.0
@@ -1293,14 +1254,11 @@ modbt7_jac p0 p1 _ _ _ = replicate modbt7_n
     where
       m = p1 - sqr p0
 
-modbt7_n :: Int
-modbt7_n = 5
-
 modbt7_params :: Floating r => SizedList N5 r
 modbt7_params = -2.0 ::: 1.0 ::: 1.0 ::: 1.0 ::: 1.0 ::: Nil
 
-modbt7_samples :: Floating r => [r]
-modbt7_samples = replicate modbt7_n 0.0
+modbt7_samples :: Floating r => SizedList N5 r
+modbt7_samples = SL.replicate 0.0
 
 modbt7_linear_constraints :: Floating r => LinearConstraints N3 N5 r
 modbt7_linear_constraints = (     (1.0 ::: 1.0 ::: -1.0 :::  0.0 ::: 0.0 ::: Nil)
@@ -1365,14 +1323,14 @@ run_modbt7_autojac = printInteresting $
 -- constri:   pi>=0.0001 (i=1..5)
 -- constri+5: pi<=100.0  (i=1..5)
 
-combust :: Floating r => Model N5 r
+combust :: Floating r => Model N5 N5 r
 combust p0 p1 p2 p3 p4 =
-    [ p0*p1 + p0 - 3*p4
-    , 2*p0*p1 + p0 + 3*r10*p1*p1 + p1*p2*p2 + r7*p1*p2 + r9*p1*p3 + r8*p1 - r*p4
-    , 2*p1*p2*p2 + r7*p1*p2 + 2*r5*p2*p2 + r6*p2-8*p4
-    , r9*p1*p3 + 2*p3*p3 - 4*r*p4
-    , p0*p1 + p0 + r10*p1*p1 + p1*p2*p2 + r7*p1*p2 + r9*p1*p3 + r8*p1 + r5*p2*p2 + r6*p2 + p3*p3 - 1.0
-    ]
+        p0*p1 + p0 - 3*p4
+    ::: 2*p0*p1 + p0 + 3*r10*p1*p1 + p1*p2*p2 + r7*p1*p2 + r9*p1*p3 + r8*p1 - r*p4
+    ::: 2*p1*p2*p2 + r7*p1*p2 + 2*r5*p2*p2 + r6*p2-8*p4
+    ::: r9*p1*p3 + 2*p3*p3 - 4*r*p4
+    ::: p0*p1 + p0 + r10*p1*p1 + p1*p2*p2 + r7*p1*p2 + r9*p1*p3 + r8*p1 + r5*p2*p2 + r6*p2 + p3*p3 - 1.0
+    ::: Nil
 
 r, r5, r6, r7, r8, r9, r10 :: Floating r => r
 r   = 10
@@ -1383,48 +1341,50 @@ r8  = 4.4975 *1e-7
 r9  = 3.40735*1e-5
 r10 = 9.615  *1e-7
 
-combust_jac :: Floating r => Jacobian N5 r
+combust_jac :: Floating r => Jacobian N5 N5 r
 combust_jac p0 p1 p2 p3 _ =
-    [     p1 + 1
-      ::: p0
-      ::: 0.0
-      ::: 0.0
-      ::: -3
-      ::: Nil
-    ,     2*p1 + 1
-      ::: 2*p0 + 6*r10*p1 + p2*p2 + r7*p2 + r9*p3 + r8
-      ::: 2*p1*p2 + r7*p1
-      ::: r9*p1
-      ::: -r
-      ::: Nil
-    ,     0.0
-      ::: 2*p2*p2 + r7*p2
-      ::: 4*p1*p2 + r7*p1 + 4*r5*p2 + r6
-      ::: 0.0
-      ::: -8
-      ::: Nil
-    ,     0.0
-      ::: r9*p3
-      ::: 0.0
-      ::: r9*p1 + 4*p3
-      ::: -4*r
-      ::: Nil
-    ,     p1 + 1
-      ::: p0 + 2*r10*p1 + p2*p2 + r7*p2 + r9*p3 + r8
-      ::: 2*p1*p2 + r7*p1 + 2*r5*p2 + r6
-      ::: r9*p1 + 2*p3
-      ::: 0.0
-      ::: Nil
-    ]
-
-combust_n :: Int
-combust_n = 5
+        (   p1 + 1
+        ::: p0
+        ::: 0.0
+        ::: 0.0
+        ::: -3
+        ::: Nil
+        )
+    ::: (   2*p1 + 1
+        ::: 2*p0 + 6*r10*p1 + p2*p2 + r7*p2 + r9*p3 + r8
+        ::: 2*p1*p2 + r7*p1
+        ::: r9*p1
+        ::: -r
+        ::: Nil
+        )
+    ::: (   0.0
+        ::: 2*p2*p2 + r7*p2
+        ::: 4*p1*p2 + r7*p1 + 4*r5*p2 + r6
+        ::: 0.0
+        ::: -8
+        ::: Nil
+        )
+    ::: (   0.0
+        ::: r9*p3
+        ::: 0.0
+        ::: r9*p1 + 4*p3
+        ::: -4*r
+        ::: Nil
+        )
+    ::: (   p1 + 1
+        ::: p0 + 2*r10*p1 + p2*p2 + r7*p2 + r9*p3 + r8
+        ::: 2*p1*p2 + r7*p1 + 2*r5*p2 + r6
+        ::: r9*p1 + 2*p3
+        ::: 0.0
+        ::: Nil
+        )
+    ::: Nil
 
 combust_params :: Floating r => SizedList N5 r
 combust_params = 0.0001 ::: 0.0001 ::: 0.0001 ::: 0.0001 ::: 0.0001 ::: Nil
 
-combust_samples :: Floating r => [r]
-combust_samples = replicate combust_n 0.0
+combust_samples :: Floating r => SizedList N5 r
+combust_samples = SL.replicate 0.0
 
 combust_lb, combust_ub :: Floating r => SizedList N5 r
 combust_lb =   0.0001 :::   0.0001 :::   0.0001 :::   0.0001 :::   0.0001 ::: Nil
@@ -1467,5 +1427,6 @@ run_combust_autojac = printInteresting $
                                 (Just combust_ub)
                                 noLinearConstraints
                                 Nothing
+
 
 -- The End ---------------------------------------------------------------------

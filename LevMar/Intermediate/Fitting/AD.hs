@@ -47,7 +47,7 @@ module LevMar.Intermediate.Fitting.AD
 
 import qualified LevMar.Intermediate.Fitting as LMA_I
 
-import LevMar.Utils.AD  ( firstDeriv, constant, idDAt )
+import LevMar.Utils.AD  ( value, firstDeriv, constant, idDAt )
 
 -- From vector-space:
 import Data.Derivative  ( (:~>), (:>), powVal )
@@ -89,11 +89,13 @@ levmar :: forall r a.
 levmar model = LMA_I.levmar (convertModel model) $ Just $ jacobianOf model
     where
       convertModel :: LMA_I.Model (r :~> r) a -> LMA_I.Model r a
-      convertModel f = \ps x -> powVal $ f (map constant ps) x undefined
+      convertModel mdl =
+          \ps x -> value $ mdl (map constant ps) x
 
       jacobianOf :: LMA_I.Model (r :~> r) a -> LMA_I.Jacobian r a
-      jacobianOf f =
-          \ps x -> map (\(ix, p) -> firstDeriv $ f (idDAt ix ps) x p) $ zip [0..] ps
+      jacobianOf mdl =
+          \ps x -> map (\(ix, p) -> firstDeriv $ mdl (idDAt ix ps) x p) $
+                       zip [0..] ps
 
 
 -- The End ---------------------------------------------------------------------

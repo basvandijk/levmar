@@ -68,7 +68,7 @@ import TypeLevelNat ( Z, S, Nat )
 import SizedList    ( SizedList(..), toList, unsafeFromList )
 import NFunction    ( NFunction, ($*) )
 
-import LevMar.Utils.AD  ( firstDeriv, constant, idDAt )
+import LevMar.Utils.AD  ( value, firstDeriv, constant, idDAt )
 
 -- From vector-space:
 import Data.Derivative  ( (:~>), (:>), powVal )
@@ -88,32 +88,33 @@ import Data.List        ( transpose )
 -- /Warning/: Don't apply 'levmar' to 'LMA.Model's that apply methods of
 -- the 'Eq' and 'Ord' classes to the parameters. These methods are
 -- undefined for ':~>'!!!
-levmar :: forall n k r.
-          ( Nat n
+levmar :: forall m n k r.
+          ( Nat m
+          , Nat n
           , Nat k
           , HasBasis r
           , Basis r ~ ()
           , VectorSpace (Scalar r)
           , LMA_I.LevMarable r
           )
-       => (LMA.Model n (r :~> r))         -- ^ Model. Note that ':~>'
+       => (LMA.Model m n (r :~> r))       -- ^ Model. Note that ':~>'
                                           --   is overloaded for all the
                                           --   numeric classes.
-       -> SizedList n r                   -- ^ Initial parameters
-       -> [r]                             -- ^ Samples
+       -> SizedList m r                   -- ^ Initial parameters
+       -> SizedList n r                   -- ^ Samples
        -> Integer                         -- ^ Maximum number of iterations
        -> LMA_I.Options r                 -- ^ Minimization options
-       -> Maybe (SizedList n r)           -- ^ Optional lower bounds
-       -> Maybe (SizedList n r)           -- ^ Optional upper bounds
-       -> Maybe (LinearConstraints k n r) -- ^ Optional linear constraints
-       -> Maybe (SizedList n r)           -- ^ Optional weights
-       -> Either LMA_I.LevMarError (SizedList n r, LMA_I.Info r, CovarMatrix n r)
+       -> Maybe (SizedList m r)           -- ^ Optional lower bounds
+       -> Maybe (SizedList m r)           -- ^ Optional upper bounds
+       -> Maybe (LinearConstraints k m r) -- ^ Optional linear constraints
+       -> Maybe (SizedList m r)           -- ^ Optional weights
+       -> Either LMA_I.LevMarError (SizedList m r, LMA_I.Info r, CovarMatrix m r)
 
 levmar model params ys itMax opts mLowBs mUpBs mLinC mWghts =
     fmap convertResult $ LMA_I.levmar (convertModel model)
                                       (Just $ jacobianOf model)
                                       (toList params)
-                                      ys
+                                      (toList ys)
                                       itMax
                                       opts
                                       (fmap toList mLowBs)
@@ -121,19 +122,20 @@ levmar model params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel :: LMA.Model n (r :~> r) -> LMA_I.Model r
-      (convertModel f) ps = fmap (\m -> powVal $ m undefined) (f $* pDs :: [r :~> r])
+      convertModel :: LMA.Model m n (r :~> r) -> LMA_I.Model r
+      (convertModel mdl) ps = fmap value $ toList
+                              (mdl $* pDs :: SizedList n (r :~> r))
           where
-            pDs :: SizedList n (r :~> r)
+            pDs :: SizedList m (r :~> r)
             pDs = unsafeFromList $ fmap constant ps
 
-      jacobianOf :: LMA.Model n (r :~> r) -> LMA_I.Jacobian r
-      (jacobianOf f) ps = fmap (\fs -> zipWith (firstDeriv .) fs ps)
-                        . transpose
-                        . fmap (\pD -> f $* (pD :: SizedList n (r :~> r))::[r :~> r])
-                        $ pDs
+      jacobianOf :: LMA.Model m n (r :~> r) -> LMA_I.Jacobian r
+      (jacobianOf mdl) ps = fmap (\fs -> zipWith (firstDeriv .) fs ps)
+                          . transpose
+                          . fmap (\pD -> toList (mdl $* (pD :: SizedList m (r :~> r)) :: SizedList n (r :~> r)))
+                          $ pDs
           where
-            pDs :: [SizedList n (r :~> r)]
+            pDs :: [SizedList m (r :~> r)]
             pDs = [unsafeFromList $ idDAt n ps | n <- [0 .. length ps - 1]]
 
 
