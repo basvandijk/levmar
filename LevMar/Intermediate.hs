@@ -373,7 +373,8 @@ type CovarMatrix r = [[r]]
 --------------------------------------------------------------------------------
 
 data LevMarError
-    = LapackError                    -- ^ A call to a lapack subroutine failed in the underlying C levmar library.
+    = LevMarError                    -- ^ Generic error (not one of the others)
+    | LapackError                    -- ^ A call to a lapack subroutine failed in the underlying C levmar library.
     | FailedBoxCheck                 -- ^ At least one lower bound exceeds the upper one.
     | MemoryAllocationFailure        -- ^ A call to @malloc@ failed in the underlying C levmar library.
     | ConstraintMatrixRowsGtCols     -- ^ The matrix of constraints cannot have more rows than columns.
@@ -386,7 +387,8 @@ data LevMarError
 
 levmarCErrorToLevMarError :: [(CInt, LevMarError)]
 levmarCErrorToLevMarError =
-    [ (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
+    [ (LMA_C._LM_ERROR,                                     LevMarError)
+    , (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
   --, (LMA_C._LM_ERROR_NO_JACOBIAN,                         can never happen)
   --, (LMA_C._LM_ERROR_NO_BOX_CONSTRAINTS,                  can never happen)
     , (LMA_C._LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
