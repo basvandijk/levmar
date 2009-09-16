@@ -9,7 +9,7 @@ maintainer:    vandijk.roel@gmail.com, v.dijk.bas@gmail.com
 copyright:     (c) 2009 Roel van Dijk & Bas van Dijk
 license:       BSD3
 license-file:  LICENSE
-category:      numerical
+category:      Numerical, Math
 synopsis:      An implementation of the Levenberg-Marquardt algorithm
 description:   The Levenberg-Marquardt algorithm is an iterative
                technique that finds a local minimum of a function that
@@ -83,7 +83,7 @@ source-repository head
 
 library
   build-depends: base >= 3 && < 4.2
-               , bindings-levmar < 0.2
+               , bindings-levmar == 0.1.*
                , vector-space >= 0.5.7 && < 0.6
                , MemoTrie >= 0.4.5 && < 0.5
   exposed-modules: LevMar
