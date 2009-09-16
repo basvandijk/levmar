@@ -89,9 +89,10 @@ hatfldc p0 p1 p2 p3 =     p0 - 1.0
 -}
 type Model m n r = NFunction m r (SizedList n r)
 
-{- | The jacobian of the 'Model' function. Expressed as a function from @m@
-parameters to a @n@/x/@m@ matrix which for each expected measurement describes
-the partial derivatives of the parameters.
+{- | The jacobian of the 'Model' function. Expressed as a function
+from @m@ parameters to a @n@/x/@m@ matrix which for each of the @n@
+expected measurement describes the @m@ partial derivatives of the
+parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 

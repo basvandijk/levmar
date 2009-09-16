@@ -89,7 +89,7 @@ type Model m r a = NFunction m r (a -> r)
 type SimpleModel m r = Model m r r
 
 {- | The jacobian of the 'Model' function. Expressed as a function from @n@
-parameters and an x-value to the @n@ partial derivatives of the parameters.
+parameters and an x-value to the @m@ partial derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 
