@@ -71,7 +71,7 @@ import NFunction    ( NFunction, ($*) )
 import LevMar.Utils.AD  ( value, firstDeriv, constant, idDAt )
 
 -- From vector-space:
-import Data.Derivative  ( (:~>), (:>), powVal )
+import Data.Derivative  ( (:~>) )
 import Data.VectorSpace ( VectorSpace, Scalar )
 import Data.Basis       ( HasBasis, Basis )
 

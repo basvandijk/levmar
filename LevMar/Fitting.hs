@@ -144,8 +144,8 @@ levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel mdl = \ps   ->           mdl $* (unsafeFromList ps :: SizedList m r)
-      convertJacob jac = \ps x -> toList (((jac $* (unsafeFromList ps :: SizedList m r)) x) :: SizedList m r)
+      convertModel mdl = \ps   ->          mdl $* (unsafeFromList ps :: SizedList m r)
+      convertJacob jac = \ps x -> toList ((jac $* (unsafeFromList ps :: SizedList m r)) x :: SizedList m r)
 
 
 -- The End ---------------------------------------------------------------------

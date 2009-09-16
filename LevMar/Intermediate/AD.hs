@@ -49,7 +49,7 @@ import qualified LevMar.Intermediate as LMA_I
 import LevMar.Utils.AD  ( value, firstDeriv, constant, idDAt )
 
 -- From vector-space:
-import Data.Derivative  ( (:~>), (:>), powVal )
+import Data.Derivative  ( (:~>) )
 import Data.VectorSpace ( VectorSpace, Scalar )
 import Data.Basis       ( HasBasis, Basis )
 
@@ -86,14 +86,14 @@ levmar :: forall r.
        -> Maybe [r]                         -- ^ Optional weights
        -> Either LMA_I.LevMarError ([r], LMA_I.Info r, LMA_I.CovarMatrix r)
 
-levmar model = LMA_I.levmar (convertModel model) $ Just $ jacobianOf model
+levmar model = LMA_I.levmar (convertModel model) . Just $ jacobianOf model
     where
       convertModel :: LMA_I.Model (r :~> r) -> LMA_I.Model r
-      convertModel mdl = fmap value . mdl . map constant
+      convertModel mdl = map value . mdl . map constant
 
       jacobianOf :: LMA_I.Model (r :~> r) -> LMA_I.Jacobian r
-      (jacobianOf mdl) ps = fmap (\fs -> zipWith (firstDeriv .) fs ps) $
-                                 transpose $ map mdl pDs
+      (jacobianOf mdl) ps = map (\fs -> zipWith (firstDeriv .) fs ps)
+                                . transpose $ map mdl pDs
           where
             pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
 

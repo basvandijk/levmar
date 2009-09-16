@@ -186,7 +186,7 @@ gen_levmar f_der
            f_blec_der
            f_blec_dif
            model mJac ps ys itMax opts mLowBs mUpBs mLinC mWeights
-    = unsafePerformIO $
+    = unsafePerformIO .
         withArray (map realToFrac ps) $ \psPtr ->
         withArray (map realToFrac ys) $ \ysPtr ->
         withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
@@ -230,7 +230,7 @@ gen_levmar f_der
           if    r < 0
              && r /= LMA_C._LM_ERROR_SINGULAR_MATRIX -- we don't treat these two as an error
              && r /= LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
-            then return $ Left $ convertLevMarError r
+            then return . Left $ convertLevMarError r
             else do result <- peekArray lenPs psPtr
                     info   <- peekArray LMA_C._LM_INFO_SZ infoPtr
 
@@ -265,7 +265,7 @@ gen_levmar f_der
 
       withLinConstraints f g = withArray (map realToFrac $ concat cMat) $ \cMatPtr ->
                                  withArray (map realToFrac rhcVec) $ \rhcVecPtr ->
-                                   f $ g cMatPtr rhcVecPtr $ fromIntegral $ length cMat
+                                   f . g cMatPtr rhcVecPtr . fromIntegral $ length cMat
 
       withWeights f g = maybeWithArray ((fmap . fmap) realToFrac mWeights) $ f . g
 
@@ -273,13 +273,13 @@ convertModel :: (Real r, Fractional r, Storable c, Real c, Fractional c)
              =>  Model r -> LMA_C.Model c
 convertModel model = \parPtr hxPtr numPar _ _ -> do
                        params <- peekArray (fromIntegral numPar) parPtr
-                       pokeArray hxPtr $ map realToFrac $ model $ map realToFrac params
+                       pokeArray hxPtr . map realToFrac . model $ map realToFrac params
 
 convertJacobian :: (Real r, Fractional r, Storable c, Real c, Fractional c)
                 => Jacobian r -> LMA_C.Jacobian c
 convertJacobian jac = \parPtr jPtr numPar _ _ -> do
                         params <- peekArray (fromIntegral numPar) parPtr
-                        pokeArray jPtr $ concatMap (map realToFrac) $ jac $ map realToFrac params
+                        pokeArray jPtr . concatMap (map realToFrac) . jac $ map realToFrac params
 
 maybeWithArray :: Storable a => Maybe [a] -> (Ptr a -> IO b) -> IO b
 maybeWithArray Nothing   f = f nullPtr

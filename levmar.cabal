@@ -3,6 +3,7 @@ version:       0.2
 cabal-version: >= 1.6
 build-type:    Simple
 stability:     experimental
+tested-with:   GHC ==6.10.4
 author:        Roel van Dijk & Bas van Dijk
 maintainer:    vandijk.roel@gmail.com, v.dijk.bas@gmail.com
 copyright:     (c) 2009 Roel van Dijk & Bas van Dijk
@@ -47,8 +48,8 @@ description:   The Levenberg-Marquardt algorithm is an iterative
                * LevMar.Fitting
                .
                Each layer also has special variants that automatically compute
-               the jacobian using automatic differentiation using Conal Elliotts
-               vector-space library:
+               the jacobian using automatic differentiation using Conal
+               Elliott's vector-space library:
                .
                * LevMar.Intermediate.AD
                .
