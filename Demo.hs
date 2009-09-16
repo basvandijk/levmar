@@ -76,11 +76,12 @@ ros p0 p1 = SL.replicate (sqr (1.0 - p0) + ros_d*sqr m)
       m = p1 - sqr p0
 
 ros_jac :: Floating r => Jacobian N2 N2 r
-ros_jac p0 p1 = SL.replicate (p0d ::: p1d ::: Nil)
+ros_jac p0 p1 = SL.replicate (  -2 + 2*p0 - 4*ros_d*m*p0
+                             ::: 2*ros_d*m
+                             ::: Nil
+                             )
     where
-      p0d = -2 + 2*p0 - 4*ros_d*m*p0
-      p1d = 2*ros_d*m
-      m   = p1 - sqr p0
+      m = p1 - sqr p0
 
 ros_d :: Floating r => r
 ros_d = 105.0
@@ -91,9 +92,9 @@ ros_params = -1.2 ::: 1.0 ::: Nil
 ros_samples :: Floating r => SizedList N2 r
 ros_samples = SL.replicate 0.0
 
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
--- !! TODO: These return with: infStopReason = MaxIterations !!
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !! TODO: Find out why these return with: infStopReason = MaxIterations !!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 run_ros :: IO ()
 run_ros = printInteresting $
@@ -1272,9 +1273,9 @@ modbt7_lb, modbt7_ub :: Floating r => SizedList N5 r
 modbt7_lb = -_DBL_MAX ::: -_DBL_MAX ::: -_DBL_MAX ::: -_DBL_MAX ::: -0.3     ::: Nil
 modbt7_ub = 0.7       ::: _DBL_MAX  ::: _DBL_MAX  ::: _DBL_MAX  ::: _DBL_MAX ::: Nil
 
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
--- !! TODO: These return with: infStopReason = MaxIterations !!
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !! TODO: Find out why these return with: infStopReason = MaxIterations !!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 run_modbt7 :: IO ()
 run_modbt7 = printInteresting $
