@@ -1,5 +1,5 @@
 name:          levmar
-version:       0.2
+version:       0.2.1
 cabal-version: >= 1.6
 build-type:    Simple
 stability:     experimental
@@ -83,7 +83,7 @@ source-repository head
 
 library
   build-depends: base >= 3 && < 4.2
-               , bindings-levmar == 0.1.*
+               , bindings-levmar >= 0.1.1.1 && < 0.2
                , vector-space >= 0.5.7 && < 0.6
                , MemoTrie >= 0.4.5 && < 0.5
   exposed-modules: LevMar

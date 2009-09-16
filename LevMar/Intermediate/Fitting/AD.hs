@@ -25,6 +25,9 @@ module LevMar.Intermediate.Fitting.AD
     ( -- * Model.
       LMA_I.Model
     , LMA_I.SimpleModel
+    , LMA_I.Jacobian
+    , LMA_I.SimpleJacobian
+    , jacobianOf
 
       -- * Levenberg-Marquardt algorithm.
     , LMA_I.LevMarable
@@ -91,10 +94,13 @@ levmar model = LMA_I.levmar (convertModel model) . Just $ jacobianOf model
       convertModel :: LMA_I.Model (r :~> r) a -> LMA_I.Model r a
       convertModel mdl = \ps -> value . mdl (map constant ps)
 
-      jacobianOf :: LMA_I.Model (r :~> r) a -> LMA_I.Jacobian r a
-      jacobianOf mdl =
-          \ps x -> map (\(ix, p) -> firstDeriv $ mdl (idDAt ix ps) x p)
-                       $ zip [0..] ps
+-- | Compute the 'LMA_I.Jacobian' of the 'LMA_I.Model' using Automatic
+-- Differentiation.
+jacobianOf :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
+           => LMA_I.Model (r :~> r) a -> LMA_I.Jacobian r a
+jacobianOf mdl =
+    \ps x -> map (\(ix, p) -> firstDeriv $ mdl (idDAt ix ps) x p) $
+                 zip [0..] ps
 
 
 -- The End ---------------------------------------------------------------------
