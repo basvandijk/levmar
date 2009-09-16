@@ -247,6 +247,11 @@ run_powell_jac = printInteresting $
                         noLinearConstraints
                         Nothing
 
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !! TODO: Here the automatic jacobian does not seem right because !!
+-- !! infNorm2E is very high compared to the manual jacobian!       !!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 run_powell_autojac :: IO ()
 run_powell_autojac = printInteresting $
                      AD.levmar powell
@@ -327,22 +332,22 @@ meyer_params = 8.85 ::: 4.0 ::: 2.5 ::: Nil
 -- TODO: Unfortunately 'zip [0..] ...' won't work because (:~>)
 -- doesn't have an Enum instance:
 meyer_samples :: (Num a, Floating r) => [(a, r)]
-meyer_samples = [ (0, 34.780)
-                , (1, 28.610)
-                , (2, 23.650)
-                , (3, 19.630)
-                , (4, 16.370)
-                , (5, 13.720)
-                , (6, 11.540)
-                , (7,  9.744)
-                , (8,  8.261)
-                , (9,  7.030)
-                , (10, 6.005)
-                , (11, 5.147)
-                , (12, 4.427)
-                , (13, 3.820)
-                , (14, 3.307)
-                , (15, 2.872)
+meyer_samples = [ ( 0, 34.780)
+                , ( 1, 28.610)
+                , ( 2, 23.650)
+                , ( 3, 19.630)
+                , ( 4, 16.370)
+                , ( 5, 13.720)
+                , ( 6, 11.540)
+                , ( 7,  9.744)
+                , ( 8,  8.261)
+                , ( 9,  7.030)
+                , (10,  6.005)
+                , (11,  5.147)
+                , (12,  4.427)
+                , (13,  3.820)
+                , (14,  3.307)
+                , (15,  2.872)
                 ]
 
 run_meyer :: IO ()
@@ -370,6 +375,11 @@ run_meyer_jac = printInteresting $
                                Nothing
                                noLinearConstraints
                                Nothing
+
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !! TODO: Here the automatic jacobian does not seem right because !!
+-- !! infNorm2E is very high compared to the manual jacobian!       !!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 run_meyer_autojac :: IO ()
 run_meyer_autojac = printInteresting $
@@ -442,7 +452,15 @@ run_helval_jac = printInteresting $
                         noLinearConstraints
                         Nothing
 
--- This function exits with an error:
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+-- !! TODO: This function exits with the following error: !!
+-- !! <interactive>: (==): No overloading for function    !!
+-- !! <interactive>: interrupted                          !!
+-- !! <interactive>: warning: too many hs_exit()s         !!
+-- !!                                                     !!
+-- !! Process haskell exited abnormally with code 252     !!
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 run_helval_autojac :: IO ()
 run_helval_autojac = printInteresting $
                      AD.levmar helval
