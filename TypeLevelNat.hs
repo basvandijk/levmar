@@ -20,13 +20,14 @@ module TypeLevelNat
     ) where
 
 
--- | Type-level natural denoting zero
+-- | Type-level natural number denoting zero
 data Z = Z deriving Show
 
--- | Type-level natural denoting the /S/uccessor of another type-level natural.
+-- | Type-level natural number denoting the /S/uccessor of another
+-- type-level natural number.
 newtype S n = S n deriving Show
 
--- | Class of all type-level naturals.
+-- | Class of all type-level natural numbers.
 class Nat n where
    -- | Case analysis on natural numbers.
    caseNat :: forall r.
@@ -43,12 +44,13 @@ instance Nat p => Nat (S p) where
    caseNat (S p) _ s = s p
 
 -- | The axiom of induction on natural numbers.
+--
 -- See: <http://en.wikipedia.org/wiki/Mathematical_induction#Axiom_of_induction>
 induction :: forall p n. Nat n
           => n
-          -> p Z
-          -> (forall m. Nat m => p m -> p (S m))
-          -> p n
+          -> p Z                                 -- ^ if you can proof the property @p@ for zero
+          -> (forall m. Nat m => p m -> p (S m)) -- ^ and if, given a proof for @m@, you can proof it for the successor of @m@.
+          -> p n                                 -- ^ you can proof it for every @n@.
 induction n z s = caseNat n isZ isS
     where
       isZ :: n ~ Z => p n
@@ -73,13 +75,33 @@ witnessNat = theWitness
                                          (Witness Z)
                                          (Witness . S . unWitness)
 
--- | A value-level natural indexed with an equivalent type-level natural.
+
+--------------------------------------------------------------------------------
+
+-- | A /value-level/ natural number indexed with an equivalent
+-- type-level natural number.
 data N n where
     Zero :: N Z
     Succ :: N n -> N (S n)
 
-nat :: forall n. Nat n => n -> N n
-nat n = induction n Zero Succ
+instance Show (N n) where
+    showsPrec _ Zero     = showString "Zero"
+    showsPrec p (Succ n) = showParen (p >= 10) $
+                           showString "Succ " .
+                           showsPrec 10 n
+
+-- | The value of @nat :: N n@ is the value-level natural number of
+-- type @N n@. For example:
+--
+-- @
+-- *TypeLevelNat> nat :: N (S (S (S Z)))
+-- Succ (Succ (Succ Zero))
+-- @
+nat :: forall n. Nat n => N n
+nat = induction witnessNat Zero Succ
+
+
+--------------------------------------------------------------------------------
 
 {-
 Template Haskell code to construct a type synonym for an arbitrary
