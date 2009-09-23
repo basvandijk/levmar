@@ -3,13 +3,20 @@
 
 module NFunction
     ( NFunction
-    , ($*)
+    , uncurry, ($*)
+    , Curry
+    , curry
     , ComposeN
     , compose
     ) where
 
-import TypeLevelNat ( Z(..), S(..), Nat )
-import SizedList    ( SizedList(..) )
+
+import Prelude hiding ( curry, uncurry )
+import TypeLevelNat   ( Z(..), S(..), Nat )
+import SizedList      ( SizedList(..) )
+
+
+--------------------------------------------------------------------------------
 
 -- | A @NFunction n a b@ is a function which takes @n@ arguments of
 -- type @a@ and returns a @b@.
@@ -19,16 +26,38 @@ type family NFunction n a b :: *
 type instance NFunction Z     a b = b
 type instance NFunction (S n) a b = a -> NFunction n a b
 
--- | @f $* xs@ applies the /n/-arity function @f@ to each of the arguments in
+
+--------------------------------------------------------------------------------
+
+-- | @uncurry f xs@ applies the /n/-arity function @f@ to each of the arguments in
 -- the /n/-sized list @xs@.
+uncurry :: NFunction n a b -> SizedList n a -> b
+uncurry f Nil        = f
+uncurry f (x ::: xs) = uncurry (f x) xs
+
+-- | Infix version of 'uncurry'.
 ($*) :: NFunction n a b -> SizedList n a -> b
-f $* Nil        = f
-f $* (x ::: xs) = f x $* xs
+($*) = uncurry
 
 infixr 0 $* -- same as $
 
+
+--------------------------------------------------------------------------------
+
+class Nat n => Curry n where
+    curry :: (SizedList n a -> b) -> NFunction n a b
+
+instance Curry Z where
+    curry = ($ Nil)
+
+instance Curry n => Curry (S n) where
+    curry f = \x -> curry $ f . (x :::)
+
+
+--------------------------------------------------------------------------------
+
 class Nat n => ComposeN n where
-    -- | Composition of NFunctions.
+    -- | Composition of @NFunction@s.
     --
     -- Note that the @n@ and @a@ arguments are used by the type
     -- checker to select the right @ComposeN@ instance. They are
@@ -42,6 +71,9 @@ instance ComposeN Z where
 instance ComposeN n => ComposeN (S n) where
     compose (S n) (_ :: a) f g = compose n (undefined :: a) f . g
 
+
+--------------------------------------------------------------------------------
+
 {-
 TODO: The following does not work as expected.
 See: http://www.haskell.org/pipermail/haskell-cafe/2009-August/065850.html
@@ -52,3 +84,6 @@ See: http://www.haskell.org/pipermail/haskell-cafe/2009-August/065850.html
 
 infixr 9 .* -- same as .
 -}
+
+
+-- The End ---------------------------------------------------------------------

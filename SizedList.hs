@@ -11,6 +11,7 @@ module SizedList
     , fromList
     , unsafeFromList
     , replicate
+    , replace
     ) where
 
 
@@ -104,6 +105,20 @@ newtype Replicate a n = R { unR :: SizedList n a}
 -- | @replicate x :: SizedList n a@ returns a @SizedList@ of @n@ @x@s.
 replicate :: forall a n. Nat n => a -> SizedList n a
 replicate x = unR $ induction (witnessNat :: n) (R Nil) (R . (x :::) . unR)
+
+
+--------------------------------------------------------------------------------
+
+replace :: forall a n. Int -> a -> SizedList n a -> SizedList n a
+replace i r xs
+    | i < 0 = xs
+    | otherwise = rep i xs
+    where rep :: forall m. Int -> SizedList m a -> SizedList m a
+          rep _ Nil = Nil
+          rep j (y ::: ys)
+              | j > 0     = y ::: rep (j - 1) ys
+              | otherwise = r ::: ys
+
 
 
 -- The End ---------------------------------------------------------------------

@@ -1,4 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 --------------------------------------------------------------------------------
 -- |
@@ -50,7 +53,7 @@ module LevMar.Fitting
     , NFunction
     ) where
 
-
+import Prelude hiding ( curry )
 import qualified LevMar.Intermediate.Fitting as LMA_I
 import LevMar.Utils ( LinearConstraints
                     , noLinearConstraints
@@ -61,9 +64,15 @@ import LevMar.Utils ( LinearConstraints
                     )
 
 import TypeLevelNat ( Z, S, Nat )
-import SizedList    ( SizedList(..), toList, unsafeFromList )
-import NFunction    ( NFunction, ($*) )
+import SizedList    ( SizedList(..), toList, unsafeFromList, replace )
+import NFunction    ( NFunction, ($*), Curry, curry )
 
+import LevMar.Utils.AD  ( firstDeriv, constant )
+
+-- From vector-space:
+import Data.Derivative  ( (:~>), idD )
+import Data.VectorSpace ( VectorSpace, Scalar )
+import Data.Basis       ( HasBasis, Basis )
 
 --------------------------------------------------------------------------------
 -- Model & Jacobian.
@@ -113,6 +122,17 @@ type Jacobian m r a = NFunction m r (a -> SizedList m r)
 -- | This type synonym expresses that usually the @a@ in @'Jacobian' m r a@
 -- equals the type of the parameters.
 type SimpleJacobian m r = Jacobian m r r
+
+-- | Compute the 'Jacobian' of the 'Model' using Automatic Differentiation.
+jacobianOf :: forall m r a. (Nat m, Curry m, HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
+           => Model m (r :~> r) a -> Jacobian m r a
+jacobianOf model = curry jac
+    where
+      jac :: SizedList m r -> (a -> SizedList m r)
+      (jac ps) x = unsafeFromList $ map combine $ zip [0..] $ toList ps
+          where
+            combine :: (Int, r) -> r
+            combine (ix, p) = firstDeriv $ (model $* (replace ix idD $ fmap constant ps) :: a -> r :~> r) x p
 
 
 --------------------------------------------------------------------------------

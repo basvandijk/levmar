@@ -1,5 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 --------------------------------------------------------------------------------
 -- |
@@ -49,6 +52,15 @@ import Foreign.C.Types       ( CInt )
 import System.IO.Unsafe      ( unsafePerformIO )
 import Data.Maybe            ( fromJust, fromMaybe, isJust )
 import Control.Monad.Instances -- for 'instance Functor (Either a)'
+
+import LevMar.Utils.AD  ( firstDeriv, idDAt )
+
+-- From vector-space:
+import Data.Derivative  ( (:~>) )
+import Data.VectorSpace ( VectorSpace, Scalar )
+import Data.Basis       ( HasBasis, Basis )
+
+import Data.List        ( transpose )
 
 import qualified Bindings.LevMar.CurryFriendly as LMA_C
 
@@ -103,6 +115,15 @@ hatfldc_jac _ p1 p2 _ = [ [1.0,  0.0,           0.0,           0.0]
 @
 -}
 type Jacobian r = [r] -> [[r]]
+
+-- | Compute the 'Jacobian' of the 'Model' using Automatic Differentiation.
+jacobianOf :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
+           => Model (r :~> r) -> Jacobian r
+(jacobianOf model) ps = map (\fs -> zipWith (firstDeriv .) fs ps)
+                      . transpose $ map model pDs
+    where
+      pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
+
 
 
 --------------------------------------------------------------------------------

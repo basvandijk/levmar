@@ -1,3 +1,7 @@
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+
 --------------------------------------------------------------------------------
 -- |
 -- Module      :  LevMar.Intermediate.Fitting
@@ -40,6 +44,14 @@ module LevMar.Intermediate.Fitting
 
     , LMA_I.LevMarError(..)
     ) where
+
+
+import LevMar.Utils.AD  ( firstDeriv, idDAt )
+
+-- From vector-space:
+import Data.Derivative  ( (:~>) )
+import Data.VectorSpace ( VectorSpace, Scalar )
+import Data.Basis       ( HasBasis, Basis )
 
 
 import qualified LevMar.Intermediate as LMA_I
@@ -97,6 +109,13 @@ type Jacobian r a = [r] -> a -> [r]
 -- | This type synonym expresses that usually the @a@ in @'Jacobian' r a@
 -- equals the type of the parameters.
 type SimpleJacobian r = Jacobian r r
+
+-- | Compute the 'Jacobian' of the 'Model' using Automatic Differentiation.
+jacobianOf :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
+           => Model (r :~> r) a -> Jacobian r a
+jacobianOf model =
+    \ps x -> map (\(ix, p) -> firstDeriv $ model (idDAt ix ps) x p) $
+                 zip [0..] ps
 
 
 --------------------------------------------------------------------------------

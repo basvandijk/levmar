@@ -91,9 +91,9 @@ library
                  , LevMar.Fitting
                  , LevMar.Fitting.AD
                  , LevMar.Intermediate
-                 , LevMar.Intermediate.AD
+                 -- , LevMar.Intermediate.AD
                  , LevMar.Intermediate.Fitting
-                 , LevMar.Intermediate.Fitting.AD
+                 -- , LevMar.Intermediate.Fitting.AD
                  , TypeLevelNat
                  , SizedList
                  , NFunction
