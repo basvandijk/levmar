@@ -23,8 +23,13 @@
 
 module LevMar.Intermediate
     ( -- * Model & Jacobian.
-       Model
+      Model
     , Jacobian
+
+      -- * Automatic Differentiation
+    , ModelAD
+    , convertModelAD
+    , jacobianOfModelAD
 
       -- * Levenberg-Marquardt algorithm.
     , LevMarable
@@ -53,7 +58,7 @@ import System.IO.Unsafe      ( unsafePerformIO )
 import Data.Maybe            ( fromJust, fromMaybe, isJust )
 import Control.Monad.Instances -- for 'instance Functor (Either a)'
 
-import LevMar.Utils.AD  ( firstDeriv, idDAt )
+import LevMar.Utils.AD  ( firstDeriv, idDAt, value, constant )
 
 -- From vector-space:
 import Data.Derivative  ( (:~>) )
@@ -62,7 +67,8 @@ import Data.Basis       ( HasBasis, Basis )
 
 import Data.List        ( transpose )
 
-import qualified Bindings.LevMar.CurryFriendly as LMA_C
+import qualified Bindings.LevMar               as LMA_C
+import qualified Bindings.LevMar.CurryFriendly as CF
 
 
 --------------------------------------------------------------------------------
@@ -116,14 +122,24 @@ hatfldc_jac _ p1 p2 _ = [ [1.0,  0.0,           0.0,           0.0]
 -}
 type Jacobian r = [r] -> [[r]]
 
--- | Compute the 'Jacobian' of the 'Model' using Automatic Differentiation.
-jacobianOf :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-           => Model (r :~> r) -> Jacobian r
-(jacobianOf model) ps = map (\fs -> zipWith (firstDeriv .) fs ps)
-                      . transpose $ map model pDs
+
+--------------------------------------------------------------------------------
+-- Automatic Differentiation
+--------------------------------------------------------------------------------
+
+type ModelAD r = Model (r :~> r)
+
+convertModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
+               => ModelAD r -> Model r
+convertModelAD modelAD = map value . modelAD . map constant
+
+-- | Compute the 'Jacobian' of the 'ModelAD' using Automatic Differentiation.
+jacobianOfModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
+                  => ModelAD r -> Jacobian r
+(jacobianOfModelAD modelAD) ps = map (\fs -> zipWith (firstDeriv .) fs ps)
+                               . transpose $ map modelAD pDs
     where
       pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
-
 
 
 --------------------------------------------------------------------------------
@@ -147,24 +163,24 @@ class LevMarable r where
            -> Either LevMarError ([r], Info r, CovarMatrix r)
 
 instance LevMarable Float where
-    levmar = gen_levmar LMA_C.slevmar_der
-                        LMA_C.slevmar_dif
-                        LMA_C.slevmar_bc_der
-                        LMA_C.slevmar_bc_dif
-                        LMA_C.slevmar_lec_der
-                        LMA_C.slevmar_lec_dif
-                        LMA_C.slevmar_blec_der
-                        LMA_C.slevmar_blec_dif
+    levmar = gen_levmar CF.slevmar_der
+                        CF.slevmar_dif
+                        CF.slevmar_bc_der
+                        CF.slevmar_bc_dif
+                        CF.slevmar_lec_der
+                        CF.slevmar_lec_dif
+                        CF.slevmar_blec_der
+                        CF.slevmar_blec_dif
 
 instance LevMarable Double where
-    levmar = gen_levmar LMA_C.dlevmar_der
-                        LMA_C.dlevmar_dif
-                        LMA_C.dlevmar_bc_der
-                        LMA_C.dlevmar_bc_dif
-                        LMA_C.dlevmar_lec_der
-                        LMA_C.dlevmar_lec_dif
-                        LMA_C.dlevmar_blec_der
-                        LMA_C.dlevmar_blec_dif
+    levmar = gen_levmar CF.dlevmar_der
+                        CF.dlevmar_dif
+                        CF.dlevmar_bc_der
+                        CF.dlevmar_bc_dif
+                        CF.dlevmar_lec_der
+                        CF.dlevmar_lec_dif
+                        CF.dlevmar_blec_der
+                        CF.dlevmar_blec_dif
 
 {- | @gen_levmar@ takes the low-level C functions as arguments and
 executes one of them depending on the optional jacobian and constraints.
@@ -178,14 +194,14 @@ Preconditions:
   boxConstrained && (all $ zipWith (<=) (fromJust mLowBs) (fromJust mUpBs))
 -}
 gen_levmar :: forall cr r. (Storable cr, RealFrac cr, Real r, Fractional r)
-           => LMA_C.LevMarDer cr
-           -> LMA_C.LevMarDif cr
-           -> LMA_C.LevMarBCDer cr
-           -> LMA_C.LevMarBCDif cr
-           -> LMA_C.LevMarLecDer cr
-           -> LMA_C.LevMarLecDif cr
-           -> LMA_C.LevMarBLecDer cr
-           -> LMA_C.LevMarBLecDif cr
+           => CF.LevMarDer cr
+           -> CF.LevMarDif cr
+           -> CF.LevMarBCDer cr
+           -> CF.LevMarBCDif cr
+           -> CF.LevMarLecDer cr
+           -> CF.LevMarLecDif cr
+           -> CF.LevMarBLecDer cr
+           -> CF.LevMarBLecDif cr
 
            -> Model r                     -- ^ Model
            -> Maybe (Jacobian r)          -- ^ Optional jacobian
@@ -211,11 +227,11 @@ gen_levmar f_der
         withArray (map realToFrac ps) $ \psPtr ->
         withArray (map realToFrac ys) $ \ysPtr ->
         withArray (map realToFrac $ optsToList opts) $ \optsPtr ->
-        allocaArray LMA_C._LM_INFO_SZ $ \infoPtr ->
+        allocaArray LMA_C.c'LM_INFO_SZ $ \infoPtr ->
         allocaArray covarLen $ \covarPtr ->
         LMA_C.withModel (convertModel model) $ \modelPtr -> do
 
-          let runDif :: LMA_C.LevMarDif cr -> IO CInt
+          let runDif :: CF.LevMarDif cr -> IO CInt
               runDif f = f modelPtr
                            psPtr
                            ysPtr
@@ -230,7 +246,7 @@ gen_levmar f_der
 
           r <- case mJac of
                  Just jac -> LMA_C.withJacobian (convertJacobian jac) $ \jacobPtr ->
-                               let runDer :: LMA_C.LevMarDer cr -> IO CInt
+                               let runDer :: CF.LevMarDer cr -> IO CInt
                                    runDer f = runDif $ f jacobPtr
                                in if boxConstrained
                                   then if linConstrained
@@ -249,11 +265,11 @@ gen_levmar f_der
                                  else runDif f_dif
 
           if    r < 0
-             && r /= LMA_C._LM_ERROR_SINGULAR_MATRIX -- we don't treat these two as an error
-             && r /= LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
+             && r /= LMA_C.c'LM_ERROR_SINGULAR_MATRIX -- we don't treat these two as an error
+             && r /= LMA_C.c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
             then return . Left $ convertLevMarError r
             else do result <- peekArray lenPs psPtr
-                    info   <- peekArray LMA_C._LM_INFO_SZ infoPtr
+                    info   <- peekArray LMA_C.c'LM_INFO_SZ infoPtr
 
                     let covarPtrEnd = plusPtr covarPtr covarLen
                     let convertCovarMatrix ptr
@@ -332,11 +348,11 @@ data Options r =
 
 -- | Default minimization options
 defaultOpts :: Fractional r => Options r
-defaultOpts = Opts { optScaleInitMu      = LMA_C._LM_INIT_MU
-                   , optStopNormInfJacTe = LMA_C._LM_STOP_THRESH
-                   , optStopNorm2Dp      = LMA_C._LM_STOP_THRESH
-                   , optStopNorm2E       = LMA_C._LM_STOP_THRESH
-                   , optDelta            = LMA_C._LM_DIFF_DELTA
+defaultOpts = Opts { optScaleInitMu      = LMA_C.c'LM_INIT_MU
+                   , optStopNormInfJacTe = LMA_C.c'LM_STOP_THRESH
+                   , optStopNorm2Dp      = LMA_C.c'LM_STOP_THRESH
+                   , optStopNorm2E       = LMA_C.c'LM_STOP_THRESH
+                   , optDelta            = LMA_C.c'LM_DIFF_DELTA
                    }
 
 optsToList :: Options r -> [r]
@@ -409,17 +425,17 @@ data LevMarError
 
 levmarCErrorToLevMarError :: [(CInt, LevMarError)]
 levmarCErrorToLevMarError =
-    [ (LMA_C._LM_ERROR,                                     LevMarError)
-    , (LMA_C._LM_ERROR_LAPACK_ERROR,                        LapackError)
-  --, (LMA_C._LM_ERROR_NO_JACOBIAN,                         can never happen)
-  --, (LMA_C._LM_ERROR_NO_BOX_CONSTRAINTS,                  can never happen)
-    , (LMA_C._LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
-    , (LMA_C._LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
-    , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
-    , (LMA_C._LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
-    , (LMA_C._LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
-  --, (LMA_C._LM_ERROR_SINGULAR_MATRIX,                     we don't treat this as an error)
-  --, (LMA_C._LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           we don't treat this as an error)
+    [ (LMA_C.c'LM_ERROR,                                     LevMarError)
+    , (LMA_C.c'LM_ERROR_LAPACK_ERROR,                        LapackError)
+  --, (LMA_C.c'LM_ERROR_NO_JACOBIAN,                         can never happen)
+  --, (LMA_C.c'LM_ERROR_NO_BOX_CONSTRAINTS,                  can never happen)
+    , (LMA_C.c'LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
+    , (LMA_C.c'LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
+    , (LMA_C.c'LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
+    , (LMA_C.c'LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
+    , (LMA_C.c'LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
+  --, (LMA_C.c'LM_ERROR_SINGULAR_MATRIX,                     we don't treat this as an error)
+  --, (LMA_C.c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           we don't treat this as an error)
     ]
 
 convertLevMarError :: CInt -> LevMarError

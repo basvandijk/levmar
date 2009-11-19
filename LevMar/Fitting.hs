@@ -28,6 +28,14 @@ module LevMar.Fitting
     , Jacobian
     , SimpleJacobian
 
+      -- * Automatic Differentiation
+    , ModelAD
+    , SimpleModelAD
+    , convertModelAD
+    , convertSimpleModelAD
+    , jacobianOfModelAD
+    , jacobianOfSimpleModelAD
+
       -- * Levenberg-Marquardt algorithm.
     , LMA_I.LevMarable
     , levmar
@@ -50,7 +58,6 @@ module LevMar.Fitting
       -- *Type-level machinery
     , Z, S, Nat
     , SizedList(..)
-    , NFunction
     ) where
 
 import Prelude hiding ( curry )
@@ -65,9 +72,8 @@ import LevMar.Utils ( LinearConstraints
 
 import TypeLevelNat ( Z, S, Nat )
 import SizedList    ( SizedList(..), toList, unsafeFromList, replace )
-import NFunction    ( NFunction, ($*), Curry, curry )
 
-import LevMar.Utils.AD  ( firstDeriv, constant )
+import LevMar.Utils.AD  ( firstDeriv, constant, value )
 
 -- From vector-space:
 import Data.Derivative  ( (:~>), idD )
@@ -91,7 +97,7 @@ quad :: 'Num' r => 'Model' N3 r r
 quad a b c x = a*x^2 + b*x + c
 @
 -}
-type Model m r a = NFunction m r (a -> r)
+type Model m r a = SizedList m r -> (a -> r)
 
 -- | This type synonym expresses that usually the @a@ in @'Model' m r a@
 -- equals the type of the parameters.
@@ -117,22 +123,65 @@ quadJacob _ _ _ x =   x^2   -- with respect to a
 
 Notice you don't have to differentiate for @x@.
 -}
-type Jacobian m r a = NFunction m r (a -> SizedList m r)
+type Jacobian m r a = SizedList m r -> (a -> SizedList m r)
 
 -- | This type synonym expresses that usually the @a@ in @'Jacobian' m r a@
 -- equals the type of the parameters.
 type SimpleJacobian m r = Jacobian m r r
 
--- | Compute the 'Jacobian' of the 'Model' using Automatic Differentiation.
-jacobianOf :: forall m r a. (Nat m, Curry m, HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-           => Model m (r :~> r) a -> Jacobian m r a
-jacobianOf model = curry jac
+--------------------------------------------------------------------------------
+-- Automatic Differentiation
+--------------------------------------------------------------------------------
+
+type ModelAD m r a = Model m (r :~> r) a
+
+type SimpleModelAD m r = ModelAD m r (r :~> r)
+
+convertModelAD :: forall m r a.
+                  ( Nat m
+                  , HasBasis r
+                  , Basis r ~ ()
+                  , VectorSpace (Scalar r)
+                  )
+               => ModelAD m r a -> Model m r a
+(convertModelAD modelAD) ps = value . modelAD (fmap constant ps)
+
+convertSimpleModelAD :: forall m r.
+                        ( Nat m
+                        , HasBasis r
+                        , Basis r ~ ()
+                        , VectorSpace (Scalar r)
+                        )
+                     => SimpleModelAD m r -> SimpleModel m r
+(convertSimpleModelAD simpleModelAD) ps = convertModelAD simpleModelAD ps . constant
+
+-- | Compute the 'Jacobian' of the 'ModelAD' using Automatic Differentiation.
+jacobianOfModelAD :: forall m r a.
+                     ( Nat m
+                     , HasBasis r
+                     , Basis r ~ ()
+                     , VectorSpace (Scalar r)
+                     )
+                  => ModelAD m r a -> Jacobian m r a
+jacobianOfModelAD modelAD = jac
     where
-      jac :: SizedList m r -> (a -> SizedList m r)
-      (jac ps) x = unsafeFromList $ map combine $ zip [0..] $ toList ps
+      jac ps x = unsafeFromList $ zipWith combine [0..] $ toList ps
           where
-            combine :: (Int, r) -> r
-            combine (ix, p) = firstDeriv $ (model $* (replace ix idD $ fmap constant ps) :: a -> r :~> r) x p
+            combine :: Int -> r -> r
+            combine ix p =
+                firstDeriv $
+                  (modelAD (replace ix idD $ fmap constant ps) :: a -> r :~> r)
+                    x p
+
+jacobianOfSimpleModelAD :: forall m r.
+                           ( Nat m
+                           , HasBasis r
+                           , Basis r ~ ()
+                           , VectorSpace (Scalar r)
+                           )
+                        => SimpleModelAD m r -> SimpleJacobian m r
+jacobianOfSimpleModelAD simpleModelAD =
+    \ps -> jacobianOfModelAD simpleModelAD ps . constant
 
 
 --------------------------------------------------------------------------------
@@ -141,7 +190,7 @@ jacobianOf model = curry jac
 
 -- | The Levenberg-Marquardt algorithm specialised for curve-fitting.
 levmar :: forall m k r a. (Nat m, Nat k, LMA_I.LevMarable r)
-       => (Model m r a)                          -- ^ Model
+       => Model m r a                            -- ^ Model
        -> Maybe (Jacobian m r a)                 -- ^ Optional jacobian
        -> SizedList m r                          -- ^ Initial parameters
        -> [(a, r)]                               -- ^ Samples
@@ -164,8 +213,8 @@ levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel mdl = \ps   ->          mdl $* (unsafeFromList ps :: SizedList m r)
-      convertJacob jac = \ps x -> toList ((jac $* (unsafeFromList ps :: SizedList m r)) x :: SizedList m r)
+      convertModel mdl = \ps   ->          mdl (unsafeFromList ps :: SizedList m r)
+      convertJacob jac = \ps x -> toList ((jac (unsafeFromList ps :: SizedList m r)) x :: SizedList m r)
 
 
 -- The End ---------------------------------------------------------------------

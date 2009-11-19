@@ -4,10 +4,8 @@
 module NFunction
     ( NFunction
     , uncurry, ($*)
-    , Curry
-    , curry
-    , ComposeN
-    , compose
+    , Curry, curry
+    , ComposeN, compose
     ) where
 
 

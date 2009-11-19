@@ -45,7 +45,6 @@ module LevMar
       -- *Type-level machinery
     , Z, S, Nat
     , SizedList(..)
-    , NFunction
     )
     where
 
@@ -62,7 +61,6 @@ import LevMar.Utils ( LinearConstraints
 
 import TypeLevelNat ( Z, S, Nat )
 import SizedList    ( SizedList(..), toList, unsafeFromList )
-import NFunction    ( NFunction, ($*) )
 
 import Data.Either
 
@@ -80,14 +78,14 @@ An example from /Demo.hs/:
 type N4 = 'S' ('S' ('S' ('S' 'Z')))
 
 hatfldc :: Model N4 N4 Double
-hatfldc p0 p1 p2 p3 =     p0 - 1.0
-                      ::: p0 - sqrt p1
-                      ::: p1 - sqrt p2
-                      ::: p3 - 1.0
-                      ::: Nil
+hatfldc (p0 ::: p1 ::: p2 ::: p3 ::: Nil) =     p0 - 1.0
+                                            ::: p0 - sqrt p1
+                                            ::: p1 - sqrt p2
+                                            ::: p3 - 1.0
+                                            ::: Nil
 @
 -}
-type Model m n r = NFunction m r (SizedList n r)
+type Model m n r = SizedList m r -> SizedList n r
 
 {- | The jacobian of the 'Model' function. Expressed as a function
 from @m@ parameters to a @n@/x/@m@ matrix which for each of the @n@
@@ -102,15 +100,15 @@ For example the jacobian of the above @hatfldc@ model is:
 type N4 = 'S' ('S' ('S' ('S' 'Z')))
 
 hatfldc_jac :: Jacobian N4 N4 Double
-hatfldc_jac _ p1 p2 _ =     (1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil)
-                        ::: (1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil)
-                        ::: (0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil)
-                        ::: (0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil)
-                        ::: Nil
+hatfldc_jac (_ ::: p1 ::: p2 ::: _ ::: Nil) =     (1.0 ::: 0.0            ::: 0.0            ::: 0.0 ::: Nil)
+                                              ::: (1.0 ::: -0.5 / sqrt p1 ::: 0.0            ::: 0.0 ::: Nil)
+                                              ::: (0.0 ::: 1.0            ::: -0.5 / sqrt p2 ::: 0.0 ::: Nil)
+                                              ::: (0.0 ::: 0.0            ::: 0.0            ::: 1.0 ::: Nil)
+                                              ::: Nil
 @
 -}
 
-type Jacobian m n r = NFunction m r (Matrix n m r)
+type Jacobian m n r = SizedList m r -> Matrix n m r
 
 
 --------------------------------------------------------------------------------
@@ -143,8 +141,8 @@ levmar model mJac params ys itMax opts mLowBs mUpBs mLinC mWghts =
                                       (fmap convertLinearConstraints mLinC)
                                       (fmap toList mWghts)
     where
-      convertModel f = \ps -> toList (f $* (unsafeFromList ps :: SizedList m r) :: SizedList n r)
-      convertJacob f = \ps -> toList (fmap toList (f $* (unsafeFromList ps :: SizedList m r) :: Matrix n m r))
+      convertModel f = toList .               f . unsafeFromList
+      convertJacob f = toList . fmap toList . f . unsafeFromList
 
 
 -- The End ---------------------------------------------------------------------

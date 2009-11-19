@@ -12,10 +12,11 @@ module SizedList
     , unsafeFromList
     , replicate
     , replace
+    , zipWith
     ) where
 
 
-import Prelude hiding ( foldr, replicate, length )
+import Prelude hiding ( foldr, replicate, length, zipWith )
 import Data.Maybe     ( fromMaybe )
 import TypeLevelNat   ( Z(..), S(..), Nat, induction, witnessNat, N(..) )
 
@@ -119,6 +120,12 @@ replace i r xs
               | j > 0     = y ::: rep (j - 1) ys
               | otherwise = r ::: ys
 
-
+zipWith :: forall a b c n. (a -> b -> c) -> SizedList n a -> SizedList n b -> SizedList n c
+zipWith f = zipWith_f
+    where
+      zipWith_f :: forall m. SizedList m a -> SizedList m b -> SizedList m c
+      zipWith_f Nil        Nil        = Nil
+      zipWith_f (x ::: xs) (y ::: ys) = f x y ::: zipWith_f xs ys
+      zipWith_f _          _          = error "SizedList.zipWith: This can never happen."
 
 -- The End ---------------------------------------------------------------------

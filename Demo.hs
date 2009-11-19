@@ -71,15 +71,16 @@ opts = defaultOpts { optStopNormInfJacTe = 1e-15
 -- global minimum at (1, 1)
 
 ros :: Floating r => Model N2 N2 r
-ros p0 p1 = SL.replicate (sqr (1.0 - p0) + ros_d*sqr m)
+ros (p0 ::: p1 ::: Nil) = SL.replicate (sqr (1.0 - p0) + ros_d*sqr m)
     where
       m = p1 - sqr p0
 
 ros_jac :: Floating r => Jacobian N2 N2 r
-ros_jac p0 p1 = SL.replicate (  -2 + 2*p0 - 4*ros_d*m*p0
-                             ::: 2*ros_d*m
-                             ::: Nil
-                             )
+ros_jac (p0 ::: p1 ::: Nil) =
+    SL.replicate (  -2 + 2*p0 - 4*ros_d*m*p0
+                 ::: 2*ros_d*m
+                 ::: Nil
+                 )
     where
       m = p1 - sqr p0
 
