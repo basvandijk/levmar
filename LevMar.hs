@@ -1,8 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 --------------------------------------------------------------------------------
 -- |
@@ -13,23 +9,16 @@
 -- Maintainer  :  vandijk.roel@gmail.com, v.dijk.bas@gmail.com
 -- Stability   :  Experimental
 --
---
---
 -- For additional documentation see the documentation of the levmar C
 -- library which this library is based on:
 -- <http://www.ics.forth.gr/~lourakis/levmar/>
 --
 --------------------------------------------------------------------------------
 
-module LevMar.Intermediate
+module LevMar
     ( -- * Model & Jacobian.
       Model
     , Jacobian
-
-      -- * Automatic Differentiation
-    , ModelAD
-    , convertModelAD
-    , jacobianOfModelAD
 
       -- * Levenberg-Marquardt algorithm.
     , LevMarable
@@ -57,15 +46,6 @@ import Foreign.C.Types       ( CInt )
 import System.IO.Unsafe      ( unsafePerformIO )
 import Data.Maybe            ( fromJust, fromMaybe, isJust )
 import Control.Monad.Instances -- for 'instance Functor (Either a)'
-
-import LevMar.Utils.AD  ( firstDeriv, idDAt, value, constant )
-
--- From vector-space:
-import Data.Derivative  ( (:~>) )
-import Data.VectorSpace ( VectorSpace, Scalar )
-import Data.Basis       ( HasBasis, Basis )
-
-import Data.List        ( transpose )
 
 import qualified Bindings.LevMar               as LMA_C
 import qualified Bindings.LevMar.CurryFriendly as CF
@@ -121,25 +101,6 @@ hatfldc_jac _ p1 p2 _ = [ [1.0,  0.0,           0.0,           0.0]
 @
 -}
 type Jacobian r = [r] -> [[r]]
-
-
---------------------------------------------------------------------------------
--- Automatic Differentiation
---------------------------------------------------------------------------------
-
-type ModelAD r = Model (r :~> r)
-
-convertModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-               => ModelAD r -> Model r
-convertModelAD modelAD = map value . modelAD . map constant
-
--- | Compute the 'Jacobian' of the 'ModelAD' using Automatic Differentiation.
-jacobianOfModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-                  => ModelAD r -> Jacobian r
-(jacobianOfModelAD modelAD) ps = map (\fs -> zipWith (firstDeriv .) fs ps)
-                               . transpose $ map modelAD pDs
-    where
-      pDs = [idDAt n ps | n <- [0 .. length ps - 1]]
 
 
 --------------------------------------------------------------------------------

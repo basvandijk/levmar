@@ -1,7 +1,3 @@
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
-
 --------------------------------------------------------------------------------
 -- |
 -- Module      :  LevMar.Intermediate.Fitting
@@ -20,20 +16,12 @@
 --
 --------------------------------------------------------------------------------
 
-module LevMar.Intermediate.Fitting
+module LevMar.Fitting
     ( -- * Model & Jacobian.
       Model
     , SimpleModel
     , Jacobian
     , SimpleJacobian
-
-      -- *Automatic Differentiation
-    , ModelAD
-    , SimpleModelAD
-    , convertModelAD
-    , convertSimpleModelAD
-    , jacobianOfModelAD
-    , jacobianOfSimpleModelAD
 
       -- * Levenberg-Marquardt algorithm.
     , LMA_I.LevMarable
@@ -53,16 +41,7 @@ module LevMar.Intermediate.Fitting
     , LMA_I.LevMarError(..)
     ) where
 
-
-import LevMar.Utils.AD  ( firstDeriv, idDAt, constant, value )
-
--- From vector-space:
-import Data.Derivative  ( (:~>) )
-import Data.VectorSpace ( VectorSpace, Scalar )
-import Data.Basis       ( HasBasis, Basis )
-
-
-import qualified LevMar.Intermediate as LMA_I
+import qualified LevMar as LMA_I
 
 
 --------------------------------------------------------------------------------
@@ -117,43 +96,6 @@ type Jacobian r a = [r] -> (a -> [r])
 -- | This type synonym expresses that usually the @a@ in @'Jacobian' r a@
 -- equals the type of the parameters.
 type SimpleJacobian r = Jacobian r r
-
-
---------------------------------------------------------------------------------
--- Automatic Differentiation
---------------------------------------------------------------------------------
-
-type ModelAD r a = Model (r :~> r) a
-
--- | This type synonym expresses that usually the @a@ in @'ModelAD' r a@
--- equals the type of the parameters.
-type SimpleModelAD r = ModelAD r (r :~> r)
-
-convertModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-               => ModelAD r a -> Model r a
-convertModelAD modelAD =
-    \ps -> value . modelAD (map constant ps)
-
-convertSimpleModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-                     => SimpleModelAD r -> SimpleModel r
-convertSimpleModelAD simpleModelAD =
-    \ps -> convertModelAD simpleModelAD ps . constant
-
--- | Compute the 'Jacobian' of the 'ModelAD' using Automatic Differentiation.
-jacobianOfModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-                  => ModelAD r a -> Jacobian r a
-jacobianOfModelAD modelAD =
-    \ps x -> map (\(ix, p) -> firstDeriv $
-                              modelAD (idDAt ix ps)
-                                      x
-                                      p
-                 ) $ zip [0..] ps
-
--- | Compute the 'Jacobian' of the 'ModelAD' using Automatic Differentiation.
-jacobianOfSimpleModelAD :: (HasBasis r, Basis r ~ (), VectorSpace (Scalar r))
-                        => SimpleModelAD r -> SimpleJacobian r
-jacobianOfSimpleModelAD simpleModelAD =
-    \ps -> jacobianOfModelAD simpleModelAD ps . constant
 
 
 --------------------------------------------------------------------------------
