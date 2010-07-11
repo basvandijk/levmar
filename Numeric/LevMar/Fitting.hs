@@ -1,24 +1,24 @@
-{-# LANGUAGE NoImplicitPrelude
-           , UnicodeSyntax 
-  #-} 
+{-# LANGUAGE NoImplicitPrelude, UnicodeSyntax #-}
 
-{- |
-Module:     LevMar.Intermediate.Fitting
-Copyright:  (c) 2009 - 2010 Roel van Dijk & Bas van Dijk
-License:    BSD-style (see the file LICENSE)
-Maintainer: Roel van Dijk <vandijk.roel@gmail.com>
-            Bas van Dijk <v.dijk.bas@gmail.com>
-Stability:  Experimental
+--------------------------------------------------------------------------------
+-- |
+-- Module:     Numeric.LevMar.Fitting
+-- Copyright:  (c) 2009 - 2010 Roel van Dijk & Bas van Dijk
+-- License:    BSD-style (see the file LICENSE)
+-- Maintainer: Roel van Dijk <vandijk.roel@gmail.com>
+--             Bas van Dijk <v.dijk.bas@gmail.com>
+-- Stability:  Experimental
+--
+-- This module provides the Levenberg-Marquardt algorithm specialised
+-- for curve-fitting.
+--
+-- For additional documentation see the documentation of the levmar C
+-- library which this library is based on:
+-- <http://www.ics.forth.gr/~lourakis/levmar/>
+--
+--------------------------------------------------------------------------------
 
-This module provides the Levenberg-Marquardt algorithm specialised
-for curve-fitting.
-
-For additional documentation see the documentation of the levmar C
-library which this library is based on:
-<http://www.ics.forth.gr/~lourakis/levmar/>
--}
-
-module LevMar.Fitting
+module Numeric.LevMar.Fitting
     ( -- * Model & Jacobian.
       Model
     , SimpleModel
@@ -26,36 +26,44 @@ module LevMar.Fitting
     , SimpleJacobian
 
       -- * Levenberg-Marquardt algorithm.
-    , LMA_I.LevMarable
+    , LevMar.LevMarable
     , levmar
 
-    , LMA_I.LinearConstraints
+    , LevMar.LinearConstraints
 
       -- * Minimization options.
-    , LMA_I.Options(..)
-    , LMA_I.defaultOpts
+    , LevMar.Options(..)
+    , LevMar.defaultOpts
 
       -- * Output
-    , LMA_I.Info(..)
-    , LMA_I.StopReason(..)
-    , LMA_I.CovarMatrix
+    , LevMar.Info(..)
+    , LevMar.StopReason(..)
+    , LevMar.CovarMatrix
 
-    , LMA_I.LevMarError(..)
+    , LevMar.LevMarError(..)
     ) where
 
-import Control.Monad ( fmap )
+
+--------------------------------------------------------------------------------
+-- Imports
+--------------------------------------------------------------------------------
+
+-- from base:
+import Data.Functor  ( fmap )
 import Data.Either   ( Either )
 import Data.List     ( map, unzip )
 import Data.Maybe    ( Maybe )
 import Prelude       ( Integer )
-import qualified LevMar as LMA_I
+
+-- from levmar:
+import qualified Numeric.LevMar as LevMar
 
 
 --------------------------------------------------------------------------------
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
-{- | A functional relation describing measurements represented as a function
+{-| A functional relation describing measurements represented as a function
 from a list of parameters and an x-value to an expected measurement.
 
  * Ensure that the length of the parameters list equals the lenght of the initial
@@ -75,7 +83,7 @@ type Model r a = [r] → (a → r)
 -- equals the type of the parameters.
 type SimpleModel r = Model r r
 
-{- | The jacobian of the 'Model' function. Expressed as a function from a list
+{-| The jacobian of the 'Model' function. Expressed as a function from a list
 of parameters and an x-value to the partial derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
@@ -96,7 +104,7 @@ quadJacob [_, _, _] x = [ x^2   -- with respect to a
                         ]
 @
 
-Notice you don't have to differentiate for @x@.
+(Notice you don't have to differentiate for @x@.)
 -}
 type Jacobian r a = [r] → (a → [r])
 
@@ -110,23 +118,23 @@ type SimpleJacobian r = Jacobian r r
 --------------------------------------------------------------------------------
 
 -- | The Levenberg-Marquardt algorithm specialised for curve-fitting.
-levmar ∷ LMA_I.LevMarable r
-       ⇒ Model r a                         -- ^ Model
-       → Maybe (Jacobian r a)              -- ^ Optional jacobian
-       → [r]                               -- ^ Initial parameters
-       → [(a, r)]                          -- ^ Samples
-       → Integer                           -- ^ Maximum iterations
-       → LMA_I.Options r                   -- ^ Minimization options
-       → Maybe [r]                         -- ^ Optional lower bounds
-       → Maybe [r]                         -- ^ Optional upper bounds
-       → Maybe (LMA_I.LinearConstraints r) -- ^ Optional linear constraints
-       → Maybe [r]                         -- ^ Optional weights
-       → Either LMA_I.LevMarError ([r], LMA_I.Info r, LMA_I.CovarMatrix r)
+levmar ∷ LevMar.LevMarable r
+       ⇒ Model r a                          -- ^ Model
+       → Maybe (Jacobian r a)               -- ^ Optional jacobian
+       → [r]                                -- ^ Initial parameters
+       → [(a, r)]                           -- ^ Samples
+       → Integer                            -- ^ Maximum iterations
+       → LevMar.Options r                   -- ^ Minimization options
+       → Maybe [r]                          -- ^ Optional lower bounds
+       → Maybe [r]                          -- ^ Optional upper bounds
+       → Maybe (LevMar.LinearConstraints r) -- ^ Optional linear constraints
+       → Maybe [r]                          -- ^ Optional weights
+       → Either LevMar.LevMarError ([r], LevMar.Info r, LevMar.CovarMatrix r)
 levmar model mJac params samples =
-    LMA_I.levmar (convertModel model)
-                 (fmap convertJacob mJac)
-                 params
-                 ys
+    LevMar.levmar (convertModel model)
+                  (fmap convertJacob mJac)
+                  params
+                  ys
         where
           (xs, ys) = unzip samples
 
