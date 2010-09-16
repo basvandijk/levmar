@@ -125,10 +125,7 @@ levmar ∷ LevMar.LevMarable r
        → [(a, r)]                           -- ^ Samples
        → Integer                            -- ^ Maximum iterations
        → LevMar.Options r                   -- ^ Minimization options
-       → Maybe [r]                          -- ^ Optional lower bounds
-       → Maybe [r]                          -- ^ Optional upper bounds
-       → Maybe (LevMar.LinearConstraints r) -- ^ Optional linear constraints
-       → Maybe [r]                          -- ^ Optional weights
+       → LevMar.Constraints r               -- ^ Constraints
        → Either LevMar.LevMarError ([r], LevMar.Info r, LevMar.CovarMatrix r)
 levmar model mJac params samples =
     LevMar.levmar (convertModel model)

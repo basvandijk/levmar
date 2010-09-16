@@ -33,6 +33,10 @@ module Numeric.LevMar
     , Options(..)
     , defaultOpts
 
+      -- * Constraints
+    , Constraints(..)
+    , noConstraints
+
       -- * Output
     , Info(..)
     , StopReason(..)
@@ -79,10 +83,45 @@ import Data.Function.Unicode ( (∘) )
 import Prelude.Unicode       ( (⋅) )
 
 -- from bindings-levmar:
-import qualified Bindings.LevMar as BLM
+import Bindings.LevMar ( c'LM_INFO_SZ
 
--- from levmar:
-import qualified Bindings.LevMar.CurryFriendly as CF
+                       , withModel
+                       , withJacobian
+
+                       , c'LM_ERROR
+                       , c'LM_ERROR_LAPACK_ERROR
+                       , c'LM_ERROR_FAILED_BOX_CHECK
+                       , c'LM_ERROR_MEMORY_ALLOCATION_FAILURE
+                       , c'LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS
+                       , c'LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK
+                       , c'LM_ERROR_TOO_FEW_MEASUREMENTS
+                       , c'LM_ERROR_SINGULAR_MATRIX
+                       , c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
+
+                       , c'LM_INIT_MU
+                       , c'LM_STOP_THRESH
+                       , c'LM_DIFF_DELTA
+                       )
+import qualified Bindings.LevMar ( Model, Jacobian )
+
+-- from levmar (this package):
+import Bindings.LevMar.CurryFriendly ( LevMarDer
+                                     , LevMarDif
+                                     , LevMarBCDer
+                                     , LevMarBCDif
+                                     , LevMarLecDer
+                                     , LevMarLecDif
+                                     , LevMarBLecDer
+                                     , LevMarBLecDif
+                                     , dlevmar_der,      slevmar_der
+                                     , dlevmar_dif,      slevmar_dif
+                                     , dlevmar_bc_der,   slevmar_bc_der
+                                     , dlevmar_bc_dif,   slevmar_bc_dif
+                                     , dlevmar_lec_der,  slevmar_lec_der
+                                     , dlevmar_lec_dif,  slevmar_lec_dif
+                                     , dlevmar_blec_der, slevmar_blec_der
+                                     , dlevmar_blec_dif, slevmar_blec_dif
+                                     )
 
 
 --------------------------------------------------------------------------------
@@ -145,37 +184,34 @@ type Jacobian r = [r] → [[r]]
 class LevMarable r where
 
     -- | The Levenberg-Marquardt algorithm.
-    levmar ∷ Model r                     -- ^ Model
-           → Maybe (Jacobian r)          -- ^ Optional jacobian
-           → [r]                         -- ^ Initial parameters
-           → [r]                         -- ^ Samples
-           → Integer                     -- ^ Maximum iterations
-           → Options r                   -- ^ Minimization options
-           → Maybe [r]                   -- ^ Optional lower bounds
-           → Maybe [r]                   -- ^ Optional upper bounds
-           → Maybe (LinearConstraints r) -- ^ Optional linear constraints
-           → Maybe [r]                   -- ^ Optional weights
+    levmar ∷ Model r            -- ^ Model
+           → Maybe (Jacobian r) -- ^ Optional jacobian
+           → [r]                -- ^ Initial parameters
+           → [r]                -- ^ Samples
+           → Integer            -- ^ Maximum iterations
+           → Options r          -- ^ Minimization options
+           → Constraints r      -- ^ Constraints
            → Either LevMarError ([r], Info r, CovarMatrix r)
 
 instance LevMarable Float where
-    levmar = gen_levmar CF.slevmar_der
-                        CF.slevmar_dif
-                        CF.slevmar_bc_der
-                        CF.slevmar_bc_dif
-                        CF.slevmar_lec_der
-                        CF.slevmar_lec_dif
-                        CF.slevmar_blec_der
-                        CF.slevmar_blec_dif
+    levmar = gen_levmar slevmar_der
+                        slevmar_dif
+                        slevmar_bc_der
+                        slevmar_bc_dif
+                        slevmar_lec_der
+                        slevmar_lec_dif
+                        slevmar_blec_der
+                        slevmar_blec_dif
 
 instance LevMarable Double where
-    levmar = gen_levmar CF.dlevmar_der
-                        CF.dlevmar_dif
-                        CF.dlevmar_bc_der
-                        CF.dlevmar_bc_dif
-                        CF.dlevmar_lec_der
-                        CF.dlevmar_lec_dif
-                        CF.dlevmar_blec_der
-                        CF.dlevmar_blec_dif
+    levmar = gen_levmar dlevmar_der
+                        dlevmar_dif
+                        dlevmar_bc_der
+                        dlevmar_bc_dif
+                        dlevmar_lec_der
+                        dlevmar_lec_dif
+                        dlevmar_blec_der
+                        dlevmar_blec_dif
 
 {-| @gen_levmar@ takes the low-level C functions as arguments and
 executes one of them depending on the optional jacobian and constraints.
@@ -192,25 +228,22 @@ Preconditions:
 @
 -}
 gen_levmar ∷ ∀ cr r. (Storable cr, RealFrac cr, Real r, Fractional r)
-           ⇒ CF.LevMarDer cr
-           → CF.LevMarDif cr
-           → CF.LevMarBCDer cr
-           → CF.LevMarBCDif cr
-           → CF.LevMarLecDer cr
-           → CF.LevMarLecDif cr
-           → CF.LevMarBLecDer cr
-           → CF.LevMarBLecDif cr
+           ⇒ LevMarDer cr
+           → LevMarDif cr
+           → LevMarBCDer cr
+           → LevMarBCDif cr
+           → LevMarLecDer cr
+           → LevMarLecDif cr
+           → LevMarBLecDer cr
+           → LevMarBLecDif cr
 
-           → Model r                     -- ^ Model
-           → Maybe (Jacobian r)          -- ^ Optional jacobian
-           → [r]                         -- ^ Initial parameters
-           → [r]                         -- ^ Samples
-           → Integer                     -- ^ Maximum iterations
-           → Options r                   -- ^ Options
-           → Maybe [r]                   -- ^ Optional lower bounds
-           → Maybe [r]                   -- ^ Optional upper bounds
-           → Maybe (LinearConstraints r) -- ^ Optional linear constraints
-           → Maybe [r]                   -- ^ Optional weights
+           → Model r            -- ^ Model
+           → Maybe (Jacobian r) -- ^ Optional jacobian
+           → [r]                -- ^ Initial parameters
+           → [r]                -- ^ Samples
+           → Integer            -- ^ Maximum iterations
+           → Options r          -- ^ Options
+           → Constraints r      -- ^ Constraints
            → Either LevMarError ([r], Info r, CovarMatrix r)
 gen_levmar f_der
            f_dif
@@ -220,73 +253,79 @@ gen_levmar f_der
            f_lec_dif
            f_blec_der
            f_blec_dif
-           model mJac ps ys itMax opts mLowBs mUpBs mLinC mWeights
+           model mJac ps ys itMax opts (Constraints mLowBs mUpBs mWeights mLinC)
     = unsafePerformIO ∘
-        withArray (map realToFrac ps) $ \psPtr →
+
+       -- Allocation:
+       withArray (map realToFrac ps) $ \psPtr →
         withArray (map realToFrac ys) $ \ysPtr →
-        withArray (map realToFrac $ optsToList opts) $ \optsPtr →
-        allocaArray BLM.c'LM_INFO_SZ $ \infoPtr →
-        allocaArray covarLen $ \covarPtr →
-        BLM.withModel (convertModel model) $ \modelPtr → do
+         withArray (map realToFrac $ optsToList opts) $ \optsPtr →
+          allocaArray c'LM_INFO_SZ $ \infoPtr →
+           allocaArray covarLen $ \covarPtr →
+            withModel (convertModel model) $ \modelPtr → do
 
-          let runDif ∷ CF.LevMarDif cr → IO CInt
-              runDif f = f modelPtr
-                           psPtr
-                           ysPtr
-                           (fromIntegral lenPs)
-                           (fromIntegral lenYs)
-                           (fromIntegral itMax)
-                           optsPtr
-                           infoPtr
-                           nullPtr
-                           covarPtr
-                           nullPtr
+              -- Calling the correct low-level levmar function:
+              let runDif ∷ LevMarDif cr → IO CInt
+                  runDif f = f modelPtr
+                               psPtr
+                               ysPtr
+                               (fromIntegral lenPs)
+                               (fromIntegral lenYs)
+                               (fromIntegral itMax)
+                               optsPtr
+                               infoPtr
+                               nullPtr
+                               covarPtr
+                               nullPtr
 
-          r ← case mJac of
-                 Just jac → BLM.withJacobian (convertJacobian jac) $ \jacobPtr →
-                               let runDer ∷ CF.LevMarDer cr → IO CInt
-                                   runDer f = runDif $ f jacobPtr
-                               in if boxConstrained
-                                  then if linConstrained
-                                       then withBoxConstraints (withLinConstraints $ withWeights runDer) f_blec_der
-                                       else withBoxConstraints runDer f_bc_der
-                                  else if linConstrained
-                                       then withLinConstraints runDer f_lec_der
-                                       else runDer f_der
+              r ← case mJac of
+                     Just jac → withJacobian (convertJacobian jac) $ \jacobPtr →
+                                   let runDer ∷ LevMarDer cr → IO CInt
+                                       runDer f = runDif $ f jacobPtr
+                                   in if boxConstrained
+                                      then if linConstrained
+                                           then withBoxConstraints
+                                                    (withLinConstraints $ withWeights runDer)
+                                                    f_blec_der
+                                           else withBoxConstraints runDer f_bc_der
+                                      else if linConstrained
+                                           then withLinConstraints runDer f_lec_der
+                                           else runDer f_der
 
-                 Nothing → if boxConstrained
-                            then if linConstrained
-                                 then withBoxConstraints (withLinConstraints $ withWeights runDif) f_blec_dif
-                                 else withBoxConstraints runDif f_bc_dif
-                            else if linConstrained
-                                 then withLinConstraints runDif f_lec_dif
-                                 else runDif f_dif
+                     Nothing → if boxConstrained
+                               then if linConstrained
+                                    then withBoxConstraints
+                                             (withLinConstraints $ withWeights runDif)
+                                             f_blec_dif
+                                    else withBoxConstraints runDif f_bc_dif
+                               else if linConstrained
+                                    then withLinConstraints runDif f_lec_dif
+                                    else runDif f_dif
 
-          if r < 0
-             -- we don't treat these two as an error
-             ∧ r ≢ BLM.c'LM_ERROR_SINGULAR_MATRIX
-             ∧ r ≢ BLM.c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
-            then return ∘ Left $ convertLevMarError r
-            else do result ← peekArray lenPs psPtr
-                    info   ← peekArray BLM.c'LM_INFO_SZ infoPtr
+              -- Handling errors:
+              if r < 0
+                 ∧ r ≢ c'LM_ERROR_SINGULAR_MATRIX -- we don't treat these two as an error
+                 ∧ r ≢ c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
+                then return $ Left $ convertLevMarError r
+                else -- Converting results:
+                     do result ← peekArray lenPs psPtr
+                        info   ← peekArray c'LM_INFO_SZ infoPtr
 
-                    let covarPtrEnd = plusPtr covarPtr covarLen
-                        convertCovarMatrix ptr
-                            | ptr ≡ covarPtrEnd = return []
-                            | otherwise = do row ← peekArray lenPs ptr
-                                             rows ← convertCovarMatrix $ plusPtr ptr lenPs
-                                             return $ row : rows
+                        let convertCovarMatrix ptr
+                                | ptr ≡ covarPtr `plusPtr` covarLen = return []
+                                | otherwise = do row ← peekArray lenPs ptr
+                                                 rows ← convertCovarMatrix $ ptr `plusPtr` lenPs
+                                                 return $ map realToFrac row : rows
 
-                    covar ← convertCovarMatrix covarPtr
-
-                    return $ Right ( map realToFrac result
-                                   , listToInfo info
-                                   , map (map realToFrac) covar
-                                   )
+                        covar ← convertCovarMatrix covarPtr
+                        return $ Right ( map realToFrac result
+                                       , listToInfo info
+                                       , covar
+                                       )
     where
       lenPs          = length ps
       lenYs          = length ys
-      covarLen       = lenPs ⋅ lenPs
+      covarLen       = lenPs⋅lenPs
       (cMat, rhcVec) = fromJust mLinC
 
       -- Whether the parameters are constrained by a linear equation.
@@ -296,8 +335,8 @@ gen_levmar f_der
       boxConstrained = isJust mLowBs ∨ isJust mUpBs
 
       withBoxConstraints f g =
-          maybeWithArray ((fmap ∘ fmap) realToFrac mLowBs) $ \lBsPtr →
-            maybeWithArray ((fmap ∘ fmap) realToFrac mUpBs) $ \uBsPtr →
+          maybeWithArray mLowBs $ \lBsPtr →
+            maybeWithArray mUpBs $ \uBsPtr →
               f $ g lBsPtr uBsPtr
 
       withLinConstraints f g =
@@ -305,26 +344,21 @@ gen_levmar f_der
             withArray (map realToFrac rhcVec) $ \rhcVecPtr →
               f ∘ g cMatPtr rhcVecPtr ∘ fromIntegral $ length cMat
 
-      withWeights f g = maybeWithArray ((fmap ∘ fmap) realToFrac mWeights) $ f ∘ g
+      withWeights f g = maybeWithArray mWeights $ f ∘ g
 
 convertModel ∷ (Real r, Fractional r, Storable c, Real c, Fractional c)
-             ⇒ Model r → BLM.Model c
+             ⇒ Model r → Bindings.LevMar.Model c
 convertModel model =
-    \parPtr hxPtr numPar _ _ → do
-      params ← peekArray (fromIntegral numPar) parPtr
-      pokeArray hxPtr ∘ map realToFrac ∘ model $ map realToFrac params
+    \parPtr hxPtr numPar _ _ →
+      peekArray (fromIntegral numPar) parPtr >>=
+        pokeArray hxPtr ∘ map realToFrac ∘ model ∘ map realToFrac
 
 convertJacobian ∷ (Real r, Fractional r, Storable c, Real c, Fractional c)
-                ⇒ Jacobian r → BLM.Jacobian c
+                ⇒ Jacobian r → Bindings.LevMar.Jacobian c
 convertJacobian jac =
-    \parPtr jPtr numPar _ _ → do
-      params ← peekArray (fromIntegral numPar) parPtr
-      pokeArray jPtr ∘ concatMap (map realToFrac) ∘ jac $ map realToFrac params
-
-maybeWithArray ∷ Storable a ⇒ Maybe [a] → (Ptr a → IO b) → IO b
-maybeWithArray Nothing   f = f nullPtr
-maybeWithArray (Just xs) f = withArray xs f
-
+    \parPtr jPtr numPar _ _ →
+      peekArray (fromIntegral numPar) parPtr >>=
+        pokeArray jPtr ∘ concatMap (map realToFrac) ∘ jac ∘ map realToFrac
 
 -- | Linear constraints consisting of a constraints matrix, /kxm/ and
 --   a right hand constraints vector, /kx1/ where /m/ is the number of
@@ -352,16 +386,37 @@ data Options r =
 
 -- | Default minimization options
 defaultOpts ∷ Fractional r ⇒ Options r
-defaultOpts = Opts { optScaleInitMu      = BLM.c'LM_INIT_MU
-                   , optStopNormInfJacTe = BLM.c'LM_STOP_THRESH
-                   , optStopNorm2Dp      = BLM.c'LM_STOP_THRESH
-                   , optStopNorm2E       = BLM.c'LM_STOP_THRESH
-                   , optDelta            = BLM.c'LM_DIFF_DELTA
+defaultOpts = Opts { optScaleInitMu      = c'LM_INIT_MU
+                   , optStopNormInfJacTe = c'LM_STOP_THRESH
+                   , optStopNorm2Dp      = c'LM_STOP_THRESH
+                   , optStopNorm2E       = c'LM_STOP_THRESH
+                   , optDelta            = c'LM_DIFF_DELTA
                    }
 
 optsToList ∷ Options r → [r]
 optsToList (Opts mu  eps1  eps2  eps3  delta) =
                 [mu, eps1, eps2, eps3, delta]
+
+
+--------------------------------------------------------------------------------
+-- Constraints
+--------------------------------------------------------------------------------
+
+data Constraints r = Constraints
+    { lowerBounds       ∷ Maybe [r]                   -- ^ Optional lower bounds
+    , upperBounds       ∷ Maybe [r]                   -- ^ Optional upper bounds
+    , weights           ∷ Maybe [r]                   -- ^ Optional weights
+    , linearConstraints ∷ Maybe (LinearConstraints r) -- ^ Optional linear constraints
+    }
+
+-- | Constraints where all fields are 'Nothing'.
+noConstraints ∷ Constraints r
+noConstraints = Constraints Nothing Nothing Nothing Nothing
+
+maybeWithArray ∷ (Real α, Fractional r, Storable r)
+               ⇒ Maybe [α] → (Ptr r → IO β) → IO β
+maybeWithArray Nothing   f = f nullPtr
+maybeWithArray (Just xs) f = withArray (map realToFrac xs) f
 
 
 --------------------------------------------------------------------------------
@@ -446,17 +501,17 @@ instance Exception LevMarError
 
 levmarCErrorToLevMarError ∷ [(CInt, LevMarError)]
 levmarCErrorToLevMarError =
-    [ (BLM.c'LM_ERROR,                                     LevMarError)
-    , (BLM.c'LM_ERROR_LAPACK_ERROR,                        LapackError)
-  --, (BLM.c'LM_ERROR_NO_JACOBIAN,                         can never happen)
-  --, (BLM.c'LM_ERROR_NO_BOX_CONSTRAINTS,                  can never happen)
-    , (BLM.c'LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
-    , (BLM.c'LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
-    , (BLM.c'LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
-    , (BLM.c'LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
-    , (BLM.c'LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
-  --, (BLM.c'LM_ERROR_SINGULAR_MATRIX,                     we don't treat this as an error)
-  --, (BLM.c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           we don't treat this as an error)
+    [ (c'LM_ERROR,                                     LevMarError)
+    , (c'LM_ERROR_LAPACK_ERROR,                        LapackError)
+  --, (c'LM_ERROR_NO_JACOBIAN,                         can never happen)
+  --, (c'LM_ERROR_NO_BOX_CONSTRAINTS,                  can never happen)
+    , (c'LM_ERROR_FAILED_BOX_CHECK,                    FailedBoxCheck)
+    , (c'LM_ERROR_MEMORY_ALLOCATION_FAILURE,           MemoryAllocationFailure)
+    , (c'LM_ERROR_CONSTRAINT_MATRIX_ROWS_GT_COLS,      ConstraintMatrixRowsGtCols)
+    , (c'LM_ERROR_CONSTRAINT_MATRIX_NOT_FULL_ROW_RANK, ConstraintMatrixNotFullRowRank)
+    , (c'LM_ERROR_TOO_FEW_MEASUREMENTS,                TooFewMeasurements)
+  --, (c'LM_ERROR_SINGULAR_MATRIX,                     we don't treat this as an error)
+  --, (c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           we don't treat this as an error)
     ]
 
 convertLevMarError ∷ CInt → LevMarError
