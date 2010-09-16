@@ -33,9 +33,8 @@ description:
   All modules are self-contained; i.e. each module re-exports all the
   things you need to work with it.
   .
-  For an example how to use this library see Demo.hs which is included
-  in this package. Demo.hs is a Haskell translation of lmdemo.c from
-  the C levmar library.
+  Also see the @levmar-safe@ package which adds extra type-safety on
+  top of this package.
   .
   A note regarding the license:
   .
