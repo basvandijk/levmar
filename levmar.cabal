@@ -48,7 +48,7 @@ source-repository head
   Location: http://code.haskell.org/levmar
 
 library
-  build-depends: base                 >= 3     && < 4.3
+  build-depends: base                 >= 3     && < 4.4
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , bindings-levmar      >= 0.2   && < 0.3
   exposed-modules: Numeric.LevMar, Numeric.LevMar.Fitting

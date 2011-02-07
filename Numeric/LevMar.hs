@@ -1,4 +1,5 @@
-{-# LANGUAGE NoImplicitPrelude
+{-# LANGUAGE CPP
+           , NoImplicitPrelude
            , UnicodeSyntax
            , ScopedTypeVariables
            , DeriveDataTypeable
@@ -68,13 +69,17 @@ import Foreign.Storable      ( Storable )
 import Foreign.C.Types       ( CInt )
 import Prelude               ( Enum, Fractional, Real, RealFrac
                              , Integer, Float, Double
-                             , fromInteger, fromIntegral, realToFrac, toEnum
+                             , fromIntegral, realToFrac, toEnum
                              , (-), error, floor
                              )
 import System.IO             ( IO )
 import System.IO.Unsafe      ( unsafePerformIO )
 import Text.Read             ( Read )
 import Text.Show             ( Show )
+
+#if __GLASGOW_HASKELL__ < 700
+import Prelude               ( fromInteger )
+#endif
 
 -- from base-unicode-symbols:
 import Data.Bool.Unicode     ( (∧), (∨) )
