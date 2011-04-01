@@ -8,7 +8,7 @@
 --------------------------------------------------------------------------------
 -- |
 -- Module:     Numeric.LevMar
--- Copyright:  (c) 2009 - 2010 Roel van Dijk & Bas van Dijk
+-- Copyright:  (c) 2009 - 2011 Roel van Dijk & Bas van Dijk
 -- License:    BSD-style (see the file LICENSE)
 -- Maintainer: Roel van Dijk <vandijk.roel@gmail.com>
 --             Bas van Dijk <v.dijk.bas@gmail.com>
