@@ -34,7 +34,6 @@ module Numeric.LevMar
 
       -- * Constraints
     , Constraints(..)
-    , noConstraints
     , LinearConstraints
 
       -- * Output
@@ -52,6 +51,7 @@ module Numeric.LevMar
 
 -- from base:
 import Control.Monad.Instances -- for 'instance Functor (Either a)'
+import Control.Monad         ( mplus )
 import Control.Exception     ( Exception )
 import Data.Typeable         ( Typeable )
 import Data.Either           ( Either(Left, Right) )
@@ -60,6 +60,7 @@ import Data.List             ( lookup, map )
 import Data.Maybe            ( Maybe(Nothing, Just)
                              , isJust, fromJust, fromMaybe
                              )
+import Data.Monoid           ( Monoid(mempty, mappend) )
 import Data.Ord              ( (<) )
 import Foreign.Marshal.Array ( allocaArray, withArray
                              , peekArray, copyArray
@@ -400,14 +401,21 @@ data Constraints r = Constraints
     , linearConstraints ∷ Maybe (LinearConstraints r) -- ^ Optional linear constraints
     }
 
+-- | * 'mempty' is defined as a 'Constraints' where all fields are 'Nothing'.
+--
+-- * 'mappend' merges two 'Constraints' by taking the first non-'Nothing' value for each field.
+instance Monoid (Constraints r) where
+    mempty = Constraints Nothing Nothing Nothing Nothing
+    mappend (Constraints lb1 ub1 w1 l1)
+            (Constraints lb2 ub2 w2 l2) = Constraints (mplus lb1 lb2)
+                                                      (mplus ub1 ub2)
+                                                      (mplus w1 w2)
+                                                      (mplus l1 l2)
+
 -- | Linear constraints consisting of a constraints matrix, @k><m@ and
 --   a right hand constraints vector, of length @k@ where @m@ is the number of
 --   parameters and @k@ is the number of constraints.
 type LinearConstraints r = (Matrix r, Vector r)
-
--- | Constraints where all fields are 'Nothing'.
-noConstraints ∷ Constraints r
-noConstraints = Constraints Nothing Nothing Nothing Nothing
 
 maybeWithArray ∷ (Real α, Fractional r, Storable r, Storable α)
                ⇒ Maybe (Vector α) → (Ptr r → IO β) → IO β
