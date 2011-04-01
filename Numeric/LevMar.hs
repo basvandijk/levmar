@@ -28,8 +28,6 @@ module Numeric.LevMar
       -- * Levenberg-Marquardt algorithm.
     , LevMarable(levmar)
 
-    , LinearConstraints
-
       -- * Minimization options.
     , Options(..)
     , defaultOpts
@@ -37,6 +35,7 @@ module Numeric.LevMar
       -- * Constraints
     , Constraints(..)
     , noConstraints
+    , LinearConstraints
 
       -- * Output
     , Info(..)
@@ -55,16 +54,20 @@ module Numeric.LevMar
 import Control.Monad.Instances -- for 'instance Functor (Either a)'
 import Control.Exception     ( Exception )
 import Data.Typeable         ( Typeable )
-import Data.Bool             ( otherwise )
 import Data.Either           ( Either(Left, Right) )
 import Data.Function         ( ($) )
-import Data.List             ( lookup, map, concat, concatMap, length )
+import Data.List             ( lookup, map )
 import Data.Maybe            ( Maybe(Nothing, Just)
                              , isJust, fromJust, fromMaybe
                              )
 import Data.Ord              ( (<) )
-import Foreign.Marshal.Array ( allocaArray, peekArray, pokeArray, withArray )
-import Foreign.Ptr           ( Ptr, nullPtr, plusPtr )
+import Foreign.Marshal.Array ( allocaArray, withArray
+                             , peekArray, copyArray
+                             )
+import Foreign.Ptr           ( Ptr, nullPtr )
+import Foreign.ForeignPtr    ( newForeignPtr_, mallocForeignPtrArray
+                             , withForeignPtr
+                             )
 import Foreign.Storable      ( Storable )
 import Foreign.C.Types       ( CInt )
 import Prelude               ( Enum, Fractional, Real, RealFrac
@@ -83,9 +86,19 @@ import Prelude               ( fromInteger )
 
 -- from base-unicode-symbols:
 import Data.Bool.Unicode     ( (∧), (∨) )
-import Data.Eq.Unicode       ( (≡), (≢) )
+import Data.Eq.Unicode       ( (≢) )
 import Data.Function.Unicode ( (∘) )
 import Prelude.Unicode       ( (⋅) )
+
+-- from hmatrix:
+import Data.Packed.Vector ( Vector )
+import Data.Packed.Matrix ( Matrix, Element, flatten, rows, reshape )
+
+-- from vector:
+import qualified Data.Vector.Storable as VS ( unsafeWith, map, length
+                                            , unsafeFromForeignPtr
+                                            , length
+                                            )
 
 -- from bindings-levmar:
 import Bindings.LevMar ( c'LM_INFO_SZ
@@ -134,51 +147,29 @@ import Bindings.LevMar.CurryFriendly ( LevMarDer
 --------------------------------------------------------------------------------
 
 {-| A functional relation describing measurements represented as a function
-from a list of parameters to a list of expected measurements.
+from a vector of parameters to a vector of expected measurements.
 
- * Ensure that the length of the parameters list equals the length of the
-   initial parameters list in 'levmar'.
+ * Ensure that the length of the parameters vector equals the length of the
+   initial parameters vector in 'levmar'.
 
- * Ensure that the length of the ouput list equals the length of the samples
-   list in 'levmar'.
-
-For example:
-
-@
-hatfldc :: Model Double
-hatfldc [p0, p1, p2, p3] = [ p0 - 1.0
-                           , p0 - sqrt p1
-                           , p1 - sqrt p2
-                           , p3 - 1.0
-                           ]
-@
+ * Ensure that the length of the ouput vector equals the length of the samples
+   vector in 'levmar'.
 -}
-type Model r = [r] → [r]
+type Model r = Vector r → Vector r
 
-{-| The jacobian of the 'Model' function. Expressed as a function from a list
-of parameters to a list of lists which for each expected measurement describes
+{-| The jacobian of the 'Model' function. Expressed as a function from a vector
+of parameters to a matrix which for each expected measurement describes
 the partial derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 
- * Ensure that the length of the parameter list equals the length of the initial
-   parameter list in 'levmar'.
+ * Ensure that the length of the parameter vector equals the length of the initial
+   parameter vector in 'levmar'.
 
- * Ensure that the output matrix has the dimension @n@/x/@m@ where @n@ is the
+ * Ensure that the output matrix has the dimension @n><m@ where @n@ is the
    number of samples and @m@ is the number of parameters.
-
-For example the jacobian of the above @hatfldc@ model is:
-
-@
-hatfldc_jac :: Jacobian Double
-hatfldc_jac _ p1 p2 _ = [ [1.0,  0.0,           0.0,           0.0]
-                        , [1.0, -0.5 / sqrt p1, 0.0,           0.0]
-                        , [0.0,  1.0,          -0.5 / sqrt p2, 0.0]
-                        , [0.0,  0.0,           0.0,           1.0]
-                        ]
-@
 -}
-type Jacobian r = [r] → [[r]]
+type Jacobian r = Vector r → Matrix r
 
 
 --------------------------------------------------------------------------------
@@ -191,12 +182,12 @@ class LevMarable r where
     -- | The Levenberg-Marquardt algorithm.
     levmar ∷ Model r            -- ^ Model
            → Maybe (Jacobian r) -- ^ Optional jacobian
-           → [r]                -- ^ Initial parameters
-           → [r]                -- ^ Samples
+           → Vector r           -- ^ Initial parameters
+           → Vector r           -- ^ Samples
            → Integer            -- ^ Maximum iterations
            → Options r          -- ^ Minimization options
            → Constraints r      -- ^ Constraints
-           → Either LevMarError ([r], Info r, CovarMatrix r)
+           → Either LevMarError (Vector r, Info r, CovarMatrix r)
 
 instance LevMarable Float where
     levmar = gen_levmar slevmar_der
@@ -232,7 +223,10 @@ Preconditions:
   boxConstrained && (all $ zipWith (<=) (fromJust mLowBs) (fromJust mUpBs))
 @
 -}
-gen_levmar ∷ ∀ cr r. (Storable cr, RealFrac cr, Real r, Fractional r)
+gen_levmar ∷ ∀ cr r.
+               ( Storable cr, RealFrac cr
+               , Storable r,  Real r, Fractional r, Element r
+               )
            ⇒ LevMarDer cr
            → LevMarDif cr
            → LevMarBCDer cr
@@ -244,12 +238,12 @@ gen_levmar ∷ ∀ cr r. (Storable cr, RealFrac cr, Real r, Fractional r)
 
            → Model r            -- ^ Model
            → Maybe (Jacobian r) -- ^ Optional jacobian
-           → [r]                -- ^ Initial parameters
-           → [r]                -- ^ Samples
+           → Vector r           -- ^ Initial parameters
+           → Vector r           -- ^ Samples
            → Integer            -- ^ Maximum iterations
            → Options r          -- ^ Options
            → Constraints r      -- ^ Constraints
-           → Either LevMarError ([r], Info r, CovarMatrix r)
+           → Either LevMarError (Vector r, Info r, CovarMatrix r)
 gen_levmar f_der
            f_dif
            f_bc_der
@@ -259,116 +253,107 @@ gen_levmar f_der
            f_blec_der
            f_blec_dif
            model mJac ps ys itMax opts (Constraints mLowBs mUpBs mWeights mLinC)
-    = unsafePerformIO ∘
+    = unsafePerformIO $ do
+        psFP ← mallocForeignPtrArray lenPs
+        withForeignPtr psFP $ \psPtr → do
+          VS.unsafeWith (VS.map realToFrac ps) $ \psPtrInp →
+            copyArray psPtr psPtrInp lenPs
+          VS.unsafeWith (VS.map realToFrac ys) $ \ysPtr →
+            withArray (map realToFrac $ optsToList opts) $ \optsPtr →
+              allocaArray c'LM_INFO_SZ $ \infoPtr → do
+                covarFP ← mallocForeignPtrArray covarLen
+                withForeignPtr covarFP $ \covarPtr →
+                  let cmodel ∷ Bindings.LevMar.Model cr
+                      cmodel parPtr hxPtr _ _ _ = do
+                        parFP ← newForeignPtr_ parPtr
+                        let psV = VS.unsafeFromForeignPtr parFP 0 lenPs
+                            vector = VS.map realToFrac $ model $ VS.map realToFrac psV
+                        VS.unsafeWith vector $ \p → copyArray hxPtr p (VS.length vector)
+                  in withModel cmodel $ \modelPtr → do
+                     -- Calling the correct low-level levmar function:
+                     let runDif ∷ LevMarDif cr → IO CInt
+                         runDif f = f modelPtr
+                                      psPtr
+                                      ysPtr
+                                      (fromIntegral lenPs)
+                                      (fromIntegral lenYs)
+                                      (fromIntegral itMax)
+                                      optsPtr
+                                      infoPtr
+                                      nullPtr
+                                      covarPtr
+                                      nullPtr
 
-       -- Allocation:
-       withArray (map realToFrac ps) $ \psPtr →
-        withArray (map realToFrac ys) $ \ysPtr →
-         withArray (map realToFrac $ optsToList opts) $ \optsPtr →
-          allocaArray c'LM_INFO_SZ $ \infoPtr →
-           allocaArray covarLen $ \covarPtr →
-            withModel (convertModel model) $ \modelPtr → do
+                     err ← case mJac of
+                       Nothing → if boxConstrained
+                                 then if linConstrained
+                                      then withBoxConstraints
+                                               (withLinConstraints $ withWeights runDif)
+                                               f_blec_dif
+                                      else withBoxConstraints runDif f_bc_dif
+                                 else if linConstrained
+                                      then withLinConstraints runDif f_lec_dif
+                                      else runDif f_dif
+                       Just jac →
+                         let cjacobian ∷ Bindings.LevMar.Jacobian cr
+                             cjacobian parPtr jPtr _ _ _ = do
+                               parFP ← newForeignPtr_ parPtr
+                               let psV    = VS.unsafeFromForeignPtr parFP 0 lenPs
+                                   matrix = jac $ VS.map realToFrac psV
+                                   vector = VS.map realToFrac $ flatten matrix
+                               VS.unsafeWith vector $ \p →
+                                 copyArray jPtr p (VS.length vector)
+                         in withJacobian cjacobian $ \jacobPtr →
+                           let runDer ∷ LevMarDer cr → IO CInt
+                               runDer f = runDif $ f jacobPtr
+                           in if boxConstrained
+                              then if linConstrained
+                                   then withBoxConstraints
+                                            (withLinConstraints $ withWeights runDer)
+                                            f_blec_der
+                                   else withBoxConstraints runDer f_bc_der
+                              else if linConstrained
+                                   then withLinConstraints runDer f_lec_der
+                                   else runDer f_der
 
-              -- Calling the correct low-level levmar function:
-              let runDif ∷ LevMarDif cr → IO CInt
-                  runDif f = f modelPtr
-                               psPtr
-                               ysPtr
-                               (fromIntegral lenPs)
-                               (fromIntegral lenYs)
-                               (fromIntegral itMax)
-                               optsPtr
-                               infoPtr
-                               nullPtr
-                               covarPtr
-                               nullPtr
+                     -- Handling errors:
+                     if err < 0
+                        -- we don't treat these two as an error
+                        ∧ err ≢ c'LM_ERROR_SINGULAR_MATRIX
+                        ∧ err ≢ c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
+                       then return $ Left $ convertLevMarError err
+                       else -- Converting results:
+                            do info ← peekArray c'LM_INFO_SZ infoPtr
+                               return $ Right
+                                 ( VS.map realToFrac $
+                                     VS.unsafeFromForeignPtr psFP 0 lenPs
+                                 , listToInfo info
+                                 , reshape lenPs $ VS.map realToFrac $
+                                     VS.unsafeFromForeignPtr covarFP 0 covarLen
+                                 )
+      where
+        lenPs          = VS.length ps
+        lenYs          = VS.length ys
+        covarLen       = lenPs⋅lenPs
+        (cMat, rhcVec) = fromJust mLinC
 
-              r ← case mJac of
-                     Just jac → withJacobian (convertJacobian jac) $ \jacobPtr →
-                                   let runDer ∷ LevMarDer cr → IO CInt
-                                       runDer f = runDif $ f jacobPtr
-                                   in if boxConstrained
-                                      then if linConstrained
-                                           then withBoxConstraints
-                                                    (withLinConstraints $ withWeights runDer)
-                                                    f_blec_der
-                                           else withBoxConstraints runDer f_bc_der
-                                      else if linConstrained
-                                           then withLinConstraints runDer f_lec_der
-                                           else runDer f_der
+        -- Whether the parameters are constrained by a linear equation.
+        linConstrained = isJust mLinC
 
-                     Nothing → if boxConstrained
-                               then if linConstrained
-                                    then withBoxConstraints
-                                             (withLinConstraints $ withWeights runDif)
-                                             f_blec_dif
-                                    else withBoxConstraints runDif f_bc_dif
-                               else if linConstrained
-                                    then withLinConstraints runDif f_lec_dif
-                                    else runDif f_dif
+        -- Whether the parameters are constrained by a bounding box.
+        boxConstrained = isJust mLowBs ∨ isJust mUpBs
 
-              -- Handling errors:
-              if r < 0
-                 ∧ r ≢ c'LM_ERROR_SINGULAR_MATRIX -- we don't treat these two as an error
-                 ∧ r ≢ c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
-                then return $ Left $ convertLevMarError r
-                else -- Converting results:
-                     do result ← peekArray lenPs psPtr
-                        info   ← peekArray c'LM_INFO_SZ infoPtr
+        withBoxConstraints f g =
+            maybeWithArray mLowBs $ \lBsPtr →
+              maybeWithArray mUpBs $ \uBsPtr →
+                f $ g lBsPtr uBsPtr
 
-                        let convertCovarMatrix ptr
-                                | ptr ≡ covarPtr `plusPtr` covarLen = return []
-                                | otherwise = do row ← peekArray lenPs ptr
-                                                 rows ← convertCovarMatrix $ ptr `plusPtr` lenPs
-                                                 return $ map realToFrac row : rows
+        withLinConstraints f g =
+            VS.unsafeWith (VS.map realToFrac $ flatten cMat) $ \cMatPtr →
+              VS.unsafeWith (VS.map realToFrac rhcVec) $ \rhcVecPtr →
+                f ∘ g cMatPtr rhcVecPtr ∘ fromIntegral $ rows cMat
 
-                        covar ← convertCovarMatrix covarPtr
-                        return $ Right ( map realToFrac result
-                                       , listToInfo info
-                                       , covar
-                                       )
-    where
-      lenPs          = length ps
-      lenYs          = length ys
-      covarLen       = lenPs⋅lenPs
-      (cMat, rhcVec) = fromJust mLinC
-
-      -- Whether the parameters are constrained by a linear equation.
-      linConstrained = isJust mLinC
-
-      -- Whether the parameters are constrained by a bounding box.
-      boxConstrained = isJust mLowBs ∨ isJust mUpBs
-
-      withBoxConstraints f g =
-          maybeWithArray mLowBs $ \lBsPtr →
-            maybeWithArray mUpBs $ \uBsPtr →
-              f $ g lBsPtr uBsPtr
-
-      withLinConstraints f g =
-          withArray (map realToFrac $ concat cMat) $ \cMatPtr →
-            withArray (map realToFrac rhcVec) $ \rhcVecPtr →
-              f ∘ g cMatPtr rhcVecPtr ∘ fromIntegral $ length cMat
-
-      withWeights f g = maybeWithArray mWeights $ f ∘ g
-
-convertModel ∷ (Real r, Fractional r, Storable c, Real c, Fractional c)
-             ⇒ Model r → Bindings.LevMar.Model c
-convertModel model =
-    \parPtr hxPtr numPar _ _ →
-      peekArray (fromIntegral numPar) parPtr >>=
-        pokeArray hxPtr ∘ map realToFrac ∘ model ∘ map realToFrac
-
-convertJacobian ∷ (Real r, Fractional r, Storable c, Real c, Fractional c)
-                ⇒ Jacobian r → Bindings.LevMar.Jacobian c
-convertJacobian jac =
-    \parPtr jPtr numPar _ _ →
-      peekArray (fromIntegral numPar) parPtr >>=
-        pokeArray jPtr ∘ concatMap (map realToFrac) ∘ jac ∘ map realToFrac
-
--- | Linear constraints consisting of a constraints matrix, /kxm/ and
---   a right hand constraints vector, /kx1/ where /m/ is the number of
---   parameters and /k/ is the number of constraints.
-type LinearConstraints r = ([[r]], [r])
+        withWeights f g = maybeWithArray mWeights $ f ∘ g
 
 
 --------------------------------------------------------------------------------
@@ -407,21 +392,27 @@ optsToList (Opts mu  eps1  eps2  eps3  delta) =
 -- Constraints
 --------------------------------------------------------------------------------
 
+-- | Ensure that these vectors have the same length as the number of parameters.
 data Constraints r = Constraints
-    { lowerBounds       ∷ Maybe [r]                   -- ^ Optional lower bounds
-    , upperBounds       ∷ Maybe [r]                   -- ^ Optional upper bounds
-    , weights           ∷ Maybe [r]                   -- ^ Optional weights
+    { lowerBounds       ∷ Maybe (Vector r)            -- ^ Optional lower bounds
+    , upperBounds       ∷ Maybe (Vector r)            -- ^ Optional upper bounds
+    , weights           ∷ Maybe (Vector r)            -- ^ Optional weights
     , linearConstraints ∷ Maybe (LinearConstraints r) -- ^ Optional linear constraints
     }
+
+-- | Linear constraints consisting of a constraints matrix, @k><m@ and
+--   a right hand constraints vector, of length @k@ where @m@ is the number of
+--   parameters and @k@ is the number of constraints.
+type LinearConstraints r = (Matrix r, Vector r)
 
 -- | Constraints where all fields are 'Nothing'.
 noConstraints ∷ Constraints r
 noConstraints = Constraints Nothing Nothing Nothing Nothing
 
-maybeWithArray ∷ (Real α, Fractional r, Storable r)
-               ⇒ Maybe [α] → (Ptr r → IO β) → IO β
-maybeWithArray Nothing   f = f nullPtr
-maybeWithArray (Just xs) f = withArray (map realToFrac xs) f
+maybeWithArray ∷ (Real α, Fractional r, Storable r, Storable α)
+               ⇒ Maybe (Vector α) → (Ptr r → IO β) → IO β
+maybeWithArray Nothing  f = f nullPtr
+maybeWithArray (Just v) f = VS.unsafeWith (VS.map realToFrac v) f
 
 
 --------------------------------------------------------------------------------
@@ -473,7 +464,7 @@ data StopReason
     deriving (Read, Show, Enum)
 
 -- | Covariance matrix corresponding to LS solution.
-type CovarMatrix r = [[r]]
+type CovarMatrix r = Matrix r
 
 
 --------------------------------------------------------------------------------
