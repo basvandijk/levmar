@@ -45,7 +45,7 @@ description:
 
 source-repository head
   Type: darcs
-  Location: http://code.haskell.org/levmar
+  Location: http://code.haskell.org/~basvandijk/code/levmar
 
 library
   build-depends: base                 >= 3     && < 4.4
