@@ -27,21 +27,15 @@ description:
   double precision floating point types are supported.
   .
   The actual algorithm is implemented in a C library which is bundled
-  with bindings-levmar which this package depends on. See:
+  with @bindings-levmar@ which this package depends on. See:
   <http://www.ics.forth.gr/~lourakis/levmar/>.
-  .
-  All modules are self-contained; i.e. each module re-exports all the
-  things you need to work with it.
-  .
-  Also see the @levmar-safe@ package which adds extra type-safety on
-  top of this package.
   .
   A note regarding the license:
   .
-  This library depends on bindings-levmar which is bundled together
+  This library depends on @bindings-levmar@ which is bundled together
   with a C library which falls under the GPL. Please be aware of this
   when distributing programs linked with this library. For details see
-  the description and license of bindings-levmar.
+  the description and license of @bindings-levmar@.
 
 source-repository head
   Type: darcs
