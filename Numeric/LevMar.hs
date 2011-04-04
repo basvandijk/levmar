@@ -251,15 +251,25 @@ gen_levmar f_der
            f_blec_dif
            model mJac ps ys itMax opts (Constraints mLowBs mUpBs mWeights mLinC)
     = unsafePerformIO $ do
+
+        -- Allocate space for the parameters array and copy the contents of the
+        -- given parameters vector to it. Note that we can't pass the given
+        -- parameters vector to the C levmar function because the array will be
+        -- modified during execution which will violate referential
+        -- transparency. We create a ForeignPtr because the parameter array is
+        -- later turned into a storable Vector.
         psFP ← mallocForeignPtrArray lenPs
         withForeignPtr psFP $ \psPtr → do
           VS.unsafeWith ps $ \psPtrInp →
             copyArray psPtr psPtrInp lenPs
+
           VS.unsafeWith ys $ \ysPtr →
             withArray (optsToList opts) $ \optsPtr →
               allocaArray c'LM_INFO_SZ $ \infoPtr → do
+
                 covarFP ← mallocForeignPtrArray covarLen
                 withForeignPtr covarFP $ \covarPtr →
+
                   let cmodel ∷ Bindings.LevMar.Model r
                       cmodel parPtr hxPtr _ _ _ = do
                         parFP ← newForeignPtr_ parPtr
@@ -267,6 +277,7 @@ gen_levmar f_der
                             vector = model psV
                         VS.unsafeWith vector $ \p → copyArray hxPtr p (VS.length vector)
                   in withModel cmodel $ \modelPtr → do
+
                      -- Calling the correct low-level levmar function:
                      let runDif ∷ LevMarDif r → IO Int
                          runDif f = f modelPtr
