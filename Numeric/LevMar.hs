@@ -63,7 +63,7 @@ import Data.Monoid           ( Monoid(mempty, mappend) )
 import Data.Ord              ( (<) )
 import Foreign.Marshal.Array ( allocaArray, withArray, peekArray, copyArray )
 import Foreign.Ptr           ( Ptr, nullPtr )
-import Foreign.ForeignPtr    ( newForeignPtr_, mallocForeignPtrArray, withForeignPtr )
+import Foreign.ForeignPtr    ( ForeignPtr, newForeignPtr_, withForeignPtr )
 import Foreign.Storable      ( Storable )
 import Prelude               ( Enum, Fractional, RealFrac, Float, Double
                              , toEnum, (-), (*), error, floor
@@ -72,6 +72,14 @@ import System.IO             ( IO )
 import System.IO.Unsafe      ( unsafePerformIO )
 import Text.Read             ( Read )
 import Text.Show             ( Show, show )
+
+#if __GLASGOW_HASKELL__ >= 605
+import GHC.ForeignPtr        ( mallocPlainForeignPtrBytes )
+import Prelude               ( undefined )
+import Foreign.Storable      ( sizeOf )
+#else
+import Foreign.ForeignPtr    ( mallocForeignPtrArray )
+#endif
 
 #if __GLASGOW_HASKELL__ < 700
 import Prelude               ( fromInteger )
@@ -246,15 +254,15 @@ gen_levmar f_der
   unsafePerformIO $ do
 
     -- We need to pass the initial parameters 'ps' to the C function.
-    -- However, we can't just pass a pointer to them because the C function 
-    -- will modify the parameters during execution which will violate 
-    -- referential transparanency. Instead we allocate new space 
+    -- However, we can't just pass a pointer to them because the C function
+    -- will modify the parameters during execution which will violate
+    -- referential transparanency. Instead we allocate new space
     -- and copy the parameters to it.
     --
     -- Note that, in the end, the array is returned from this function.
     -- This means that the only way to guarantee its finalisation
     -- is to allocate it using a ForeignPtr:
-    psFP ← mallocForeignPtrArray lenPs
+    psFP ← fastMallocForeignPtrArray lenPs
     withForeignPtr psFP $ \psPtr → do
       VS.unsafeWith ps $ \psPtrInp →
         copyArray psPtr psPtrInp lenPs
@@ -278,7 +286,7 @@ gen_levmar f_der
             -- Like the parameters array the matrix
             -- needs to be returned from this function.
             -- So we also allocate it using a ForeignPtr:
-            covarFP ← mallocForeignPtrArray covarLen
+            covarFP ← fastMallocForeignPtrArray covarLen
             withForeignPtr covarFP $ \covarPtr →
 
               -- 'cmodel' is the low-level model function which is converted
@@ -387,6 +395,16 @@ gen_levmar f_der
 maybeWithArray ∷ (Storable α) ⇒ Maybe (Vector α) → (Ptr α → IO β) → IO β
 maybeWithArray Nothing  f = f nullPtr
 maybeWithArray (Just v) f = VS.unsafeWith v f
+
+#if __GLASGOW_HASKELL__ >= 605
+{-# INLINE fastMallocForeignPtrArray #-}
+fastMallocForeignPtrArray ∷ ∀ α. Storable α ⇒ Int → IO (ForeignPtr α)
+fastMallocForeignPtrArray n = mallocPlainForeignPtrBytes
+                                (n * sizeOf (undefined ∷ α))
+#else
+fastMallocForeignPtrArray ∷ ∀ α. Storable α ⇒ Int → IO (ForeignPtr α)
+fastMallocForeignPtrArray = mallocForeignPtrArray
+#endif
 
 
 --------------------------------------------------------------------------------
