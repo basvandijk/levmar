@@ -38,6 +38,8 @@ description:
   when distributing programs linked with this library. For details see
   the description and license of @bindings-levmar@.
 
+extra-source-files: README.markdown
+
 source-repository head
   Type: git
   Location: git://github.com/basvandijk/levmar.git
