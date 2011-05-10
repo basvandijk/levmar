@@ -413,16 +413,16 @@ fastMallocForeignPtrArray = mallocForeignPtrArray
 
 -- | Minimization options
 data Options r =
-    Opts { optScaleInitMu      ∷ r -- ^ Scale factor for initial /mu/.
-         , optStopNormInfJacTe ∷ r -- ^ Stopping thresholds for @||J^T e||_inf@.
-         , optStopNorm2Dp      ∷ r -- ^ Stopping thresholds for @||Dp||_2@.
-         , optStopNorm2E       ∷ r -- ^ Stopping thresholds for @||e||_2@.
-         , optDelta            ∷ r -- ^ Step used in the difference
-                                   -- approximation to the Jacobian. If
-                                   -- @optDelta<0@, the Jacobian is approximated
-                                   -- with central differences which are more
-                                   -- accurate (but slower!)  compared to the
-                                   -- forward differences employed by default.
+    Opts { optScaleInitMu      ∷ !r -- ^ Scale factor for initial /mu/.
+         , optStopNormInfJacTe ∷ !r -- ^ Stopping thresholds for @||J^T e||_inf@.
+         , optStopNorm2Dp      ∷ !r -- ^ Stopping thresholds for @||Dp||_2@.
+         , optStopNorm2E       ∷ !r -- ^ Stopping thresholds for @||e||_2@.
+         , optDelta            ∷ !r -- ^ Step used in the difference
+                                    -- approximation to the Jacobian. If
+                                    -- @optDelta<0@, the Jacobian is approximated
+                                    -- with central differences which are more
+                                    -- accurate (but slower!)  compared to the
+                                    -- forward differences employed by default.
          } deriving (Read, Show)
 
 -- | Default minimization options
@@ -445,10 +445,10 @@ optsToList (Opts mu  eps1  eps2  eps3  delta) =
 
 -- | Ensure that these vectors have the same length as the number of parameters.
 data Constraints r = Constraints
-    { lowerBounds       ∷ Maybe (Vector r)            -- ^ Optional lower bounds
-    , upperBounds       ∷ Maybe (Vector r)            -- ^ Optional upper bounds
-    , weights           ∷ Maybe (Vector r)            -- ^ Optional weights
-    , linearConstraints ∷ Maybe (LinearConstraints r) -- ^ Optional linear constraints
+    { lowerBounds       ∷ !(Maybe (Vector r))            -- ^ Optional lower bounds
+    , upperBounds       ∷ !(Maybe (Vector r))            -- ^ Optional upper bounds
+    , weights           ∷ !(Maybe (Vector r))            -- ^ Optional weights
+    , linearConstraints ∷ !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
     }
 
 -- | Linear constraints consisting of a constraints matrix, @k><m@ and
@@ -475,17 +475,17 @@ instance Monoid (Constraints r) where
 
 -- | Information regarding the minimization.
 data Info r = Info
-  { infNorm2initE      ∷ r          -- ^ @||e||_2@             at initial parameters.
-  , infNorm2E          ∷ r          -- ^ @||e||_2@             at estimated parameters.
-  , infNormInfJacTe    ∷ r          -- ^ @||J^T e||_inf@       at estimated parameters.
-  , infNorm2Dp         ∷ r          -- ^ @||Dp||_2@            at estimated parameters.
-  , infMuDivMax        ∷ r          -- ^ @\mu/max[J^T J]_ii ]@ at estimated parameters.
-  , infNumIter         ∷ Int        -- ^ Number of iterations.
-  , infStopReason      ∷ StopReason -- ^ Reason for terminating.
-  , infNumFuncEvals    ∷ Int        -- ^ Number of function evaluations.
-  , infNumJacobEvals   ∷ Int        -- ^ Number of jacobian evaluations.
-  , infNumLinSysSolved ∷ Int        -- ^ Number of linear systems solved,
-                                    --   i.e. attempts for reducing error.
+  { infNorm2initE      ∷ !r          -- ^ @||e||_2@             at initial parameters.
+  , infNorm2E          ∷ !r          -- ^ @||e||_2@             at estimated parameters.
+  , infNormInfJacTe    ∷ !r          -- ^ @||J^T e||_inf@       at estimated parameters.
+  , infNorm2Dp         ∷ !r          -- ^ @||Dp||_2@            at estimated parameters.
+  , infMuDivMax        ∷ !r          -- ^ @\mu/max[J^T J]_ii ]@ at estimated parameters.
+  , infNumIter         ∷ !Int        -- ^ Number of iterations.
+  , infStopReason      ∷ !StopReason -- ^ Reason for terminating.
+  , infNumFuncEvals    ∷ !Int        -- ^ Number of function evaluations.
+  , infNumJacobEvals   ∷ !Int        -- ^ Number of jacobian evaluations.
+  , infNumLinSysSolved ∷ !Int        -- ^ Number of linear systems solved,
+                                     --   i.e. attempts for reducing error.
   } deriving (Read, Show)
 
 listToInfo ∷ (RealFrac r) ⇒ [r] → Info r
