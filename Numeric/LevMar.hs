@@ -39,8 +39,6 @@ module Numeric.LevMar
       -- * Output
     , Info(..)
     , StopReason(..)
-    , CovarMatrix
-
     , LevMarError(..)
     ) where
 
@@ -180,6 +178,10 @@ type Jacobian r = Vector r → Matrix r
 class LevMarable r where
 
     -- | The Levenberg-Marquardt algorithm.
+    --
+    -- Returns a tuple of the found parameters, a structure containing
+    -- information about the minimization and the covariance matrix
+    -- corresponding to LS solution.
     levmar ∷ Model r            -- ^ Model
            → Maybe (Jacobian r) -- ^ Optional jacobian
            → Vector r           -- ^ Initial parameters
@@ -187,7 +189,7 @@ class LevMarable r where
            → Int                -- ^ Maximum iterations
            → Options r          -- ^ Minimization options
            → Constraints r      -- ^ Constraints
-           → Either LevMarError (Vector r, Info r, CovarMatrix r)
+           → Either LevMarError (Vector r, Info r, Matrix r)
 
 instance LevMarable Float where
     levmar = gen_levmar slevmar_der
@@ -240,7 +242,7 @@ gen_levmar ∷ ∀ r. (Storable r, RealFrac r, Element r)
            → Int                -- ^ Maximum iterations
            → Options r          -- ^ Options
            → Constraints r      -- ^ Constraints
-           → Either LevMarError (Vector r, Info r, CovarMatrix r)
+           → Either LevMarError (Vector r, Info r, Matrix r)
 gen_levmar f_der
            f_dif
            f_bc_der
@@ -516,9 +518,6 @@ data StopReason
   | InvalidValues  -- ^ Stopped because model function returned invalid values
                    --   (i.e. NaN or Inf). This is a user error.
     deriving (Read, Show, Enum)
-
--- | Covariance matrix corresponding to LS solution.
-type CovarMatrix r = Matrix r
 
 
 --------------------------------------------------------------------------------
