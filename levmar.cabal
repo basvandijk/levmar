@@ -1,5 +1,5 @@
 name:          levmar
-version:       0.4
+version:       1.0
 cabal-version: >= 1.6
 build-type:    Simple
 stability:     experimental
@@ -47,7 +47,7 @@ source-repository head
 library
   build-depends: base                 >= 3     && < 4.4
                , base-unicode-symbols >= 0.1.1 && < 0.3
-               , bindings-levmar      >= 0.3   && < 0.4
+               , bindings-levmar      >= 1.0   && < 1.1
                , hmatrix              >= 0.11  && < 0.12
                , vector               >= 0.7   && < 0.8
   exposed-modules: Numeric.LevMar
