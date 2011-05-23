@@ -425,7 +425,7 @@ data Options r =
                                     -- with central differences which are more
                                     -- accurate (but slower!)  compared to the
                                     -- forward differences employed by default.
-         } deriving (Read, Show)
+         } deriving (Read, Show, Typeable)
 
 -- | Default minimization options
 defaultOpts ∷ Fractional r ⇒ Options r
@@ -451,7 +451,7 @@ data Constraints r = Constraints
     , upperBounds       ∷ !(Maybe (Vector r))            -- ^ Optional upper bounds
     , weights           ∷ !(Maybe (Vector r))            -- ^ Optional weights
     , linearConstraints ∷ !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
-    }
+    } deriving (Show, Typeable)
 
 -- | Linear constraints consisting of a constraints matrix, @k><m@ and
 --   a right hand constraints vector, of length @k@ where @m@ is the number of
@@ -488,7 +488,7 @@ data Info r = Info
   , infNumJacobEvals   ∷ !Int        -- ^ Number of jacobian evaluations.
   , infNumLinSysSolved ∷ !Int        -- ^ Number of linear systems solved,
                                      --   i.e. attempts for reducing error.
-  } deriving (Read, Show)
+  } deriving (Read, Show, Typeable)
 
 listToInfo ∷ (RealFrac r) ⇒ [r] → Info r
 listToInfo [a,b,c,d,e,f,g,h,i,j] =
@@ -517,7 +517,7 @@ data StopReason
   | SmallNorm2E    -- ^ Stopped because of small @||e||_2@.
   | InvalidValues  -- ^ Stopped because model function returned invalid values
                    --   (i.e. NaN or Inf). This is a user error.
-    deriving (Read, Show, Enum)
+    deriving (Read, Show, Typeable, Enum)
 
 
 --------------------------------------------------------------------------------
@@ -543,7 +543,7 @@ data LevMarError
                                      --   of measurements is smaller than the
                                      --   number of unknowns minus the number of
                                      --   equality constraints.
-      deriving (Show, Typeable)
+      deriving (Read, Show, Typeable)
 
 -- Handy in case you want to thow a LevMarError as an exception:
 instance Exception LevMarError
@@ -566,6 +566,3 @@ levmarCErrorToLevMarError =
 convertLevMarError ∷ Int → LevMarError
 convertLevMarError err = fromMaybe (error $ "Unknown levmar error: " ++ show err)
                                    (lookup err levmarCErrorToLevMarError)
-
-
--- The End ---------------------------------------------------------------------
