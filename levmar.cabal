@@ -1,5 +1,5 @@
 name:          levmar
-version:       1.1
+version:       1.1.0.1
 cabal-version: >= 1.6
 build-type:    Simple
 stability:     experimental
@@ -46,7 +46,7 @@ source-repository head
   Location: git://github.com/basvandijk/levmar.git
 
 library
-  build-depends: base                 >= 3     && < 4.4
+  build-depends: base                 >= 3     && < 4.5
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , bindings-levmar      >= 1.0   && < 1.1
                , hmatrix              >= 0.11  && < 0.12
