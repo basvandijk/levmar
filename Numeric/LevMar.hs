@@ -52,13 +52,14 @@ import Control.Monad         ( return, mplus )
 import Control.Exception     ( Exception )
 import Data.Typeable         ( Typeable )
 import Data.Either           ( Either(Left, Right) )
+import Data.Eq               ( Eq )
 import Data.Function         ( ($) )
 import Data.Functor          ( (<$>) )
 import Data.Int              ( Int )
 import Data.List             ( lookup, (++) )
 import Data.Maybe            ( Maybe(Nothing, Just), isJust, fromJust, fromMaybe )
 import Data.Monoid           ( Monoid(mempty, mappend) )
-import Data.Ord              ( (<) )
+import Data.Ord              ( Ord, (<) )
 import Foreign.Marshal.Array ( allocaArray, withArray, peekArray, copyArray )
 import Foreign.Ptr           ( Ptr, nullPtr )
 import Foreign.ForeignPtr    ( ForeignPtr, newForeignPtr_, withForeignPtr )
@@ -425,7 +426,7 @@ data Options r =
                                     -- with central differences which are more
                                     -- accurate (but slower!)  compared to the
                                     -- forward differences employed by default.
-         } deriving (Read, Show, Typeable)
+         } deriving (Eq, Ord, Read, Show, Typeable)
 
 -- | Default minimization options
 defaultOpts ∷ Fractional r ⇒ Options r
