@@ -3,6 +3,9 @@
            , UnicodeSyntax
            , ScopedTypeVariables
            , DeriveDataTypeable
+           , StandaloneDeriving
+           , FlexibleContexts
+           , UndecidableInstances
   #-}
 
 --------------------------------------------------------------------------------
@@ -50,6 +53,7 @@ module Numeric.LevMar
 -- from base:
 import Control.Monad         ( return, mplus )
 import Control.Exception     ( Exception )
+import Data.Data             ( Data )
 import Data.Typeable         ( Typeable )
 import Data.Either           ( Either(Left, Right) )
 import Data.Eq               ( Eq )
@@ -90,10 +94,12 @@ import Data.Eq.Unicode       ( (≢) )
 import Data.Function.Unicode ( (∘) )
 
 -- from hmatrix:
-import Data.Packed.Vector ( Vector )
-import Data.Packed.Matrix ( Matrix, Element, flatten, rows, reshape )
+import Data.Packed.Matrix    ( Matrix, Element, flatten, rows, reshape )
+import Numeric.Container     ( Container )
+import Numeric.LinearAlgebra ( {- Instances for Matrix -} )
 
 -- from vector:
+import           Data.Vector.Storable       ( Vector )
 import qualified Data.Vector.Storable as VS ( unsafeWith, length
                                             , unsafeFromForeignPtr
                                             , length
@@ -426,7 +432,7 @@ data Options r =
                                     -- with central differences which are more
                                     -- accurate (but slower!)  compared to the
                                     -- forward differences employed by default.
-         } deriving (Eq, Ord, Read, Show, Typeable)
+         } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- | Default minimization options
 defaultOpts ∷ Fractional r ⇒ Options r
@@ -452,7 +458,9 @@ data Constraints r = Constraints
     , upperBounds       ∷ !(Maybe (Vector r))            -- ^ Optional upper bounds
     , weights           ∷ !(Maybe (Vector r))            -- ^ Optional weights
     , linearConstraints ∷ !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
-    } deriving (Show, Typeable)
+    } deriving (Read, Show, Typeable)
+
+deriving instance Container Vector r ⇒ Eq (Constraints r)
 
 -- | Linear constraints consisting of a constraints matrix, @k><m@ and
 --   a right hand constraints vector, of length @k@ where @m@ is the number of
@@ -489,7 +497,7 @@ data Info r = Info
   , infNumJacobEvals   ∷ !Int        -- ^ Number of jacobian evaluations.
   , infNumLinSysSolved ∷ !Int        -- ^ Number of linear systems solved,
                                      --   i.e. attempts for reducing error.
-  } deriving (Read, Show, Typeable)
+  } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 listToInfo ∷ (RealFrac r) ⇒ [r] → Info r
 listToInfo [a,b,c,d,e,f,g,h,i,j] =
@@ -518,7 +526,7 @@ data StopReason
   | SmallNorm2E    -- ^ Stopped because of small @||e||_2@.
   | InvalidValues  -- ^ Stopped because model function returned invalid values
                    --   (i.e. NaN or Inf). This is a user error.
-    deriving (Read, Show, Typeable, Enum)
+    deriving (Eq, Ord, Read, Show, Data, Typeable, Enum)
 
 
 --------------------------------------------------------------------------------
@@ -544,7 +552,7 @@ data LevMarError
                                      --   of measurements is smaller than the
                                      --   number of unknowns minus the number of
                                      --   equality constraints.
-      deriving (Read, Show, Typeable)
+      deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- Handy in case you want to thow a LevMarError as an exception:
 instance Exception LevMarError
