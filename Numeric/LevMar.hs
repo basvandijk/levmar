@@ -62,7 +62,7 @@ import Data.Functor          ( (<$>) )
 import Data.Int              ( Int )
 import Data.List             ( lookup, (++) )
 import Data.Maybe            ( Maybe(Nothing, Just), isJust, fromJust, fromMaybe )
-import Data.Monoid           ( Monoid(mempty, mappend) )
+import Data.Monoid           ( Monoid, mempty, mappend )
 import Data.Ord              ( Ord, (<) )
 import Foreign.Marshal.Array ( allocaArray, withArray, peekArray, copyArray )
 import Foreign.Ptr           ( Ptr, nullPtr )
@@ -128,14 +128,11 @@ import Bindings.LevMar ( c'LM_INFO_SZ
 import qualified Bindings.LevMar ( Model, Jacobian )
 
 -- from levmar (this package):
-import Bindings.LevMar.CurryFriendly ( LevMarDer
-                                     , LevMarDif
-                                     , LevMarBCDer
-                                     , LevMarBCDif
-                                     , LevMarLecDer
-                                     , LevMarLecDif
-                                     , LevMarBLecDer
-                                     , LevMarBLecDif
+import Bindings.LevMar.CurryFriendly ( LevMarDer,     LevMarDif
+                                     , LevMarBCDer,   LevMarBCDif
+                                     , LevMarLecDer,  LevMarLecDif
+                                     , LevMarBLecDer, LevMarBLecDif
+
                                      , dlevmar_der,      slevmar_der
                                      , dlevmar_dif,      slevmar_dif
                                      , dlevmar_bc_der,   slevmar_bc_der

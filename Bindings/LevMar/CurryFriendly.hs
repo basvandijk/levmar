@@ -146,6 +146,3 @@ slevmar_blec_der = mk_levmar_blec_der BLM.c'slevmar_blec_der
 
 dlevmar_blec_der ∷ LevMarBLecDer Double
 dlevmar_blec_der = mk_levmar_blec_der BLM.c'dlevmar_blec_der
-
-
--- The End ---------------------------------------------------------------------
