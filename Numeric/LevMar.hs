@@ -457,7 +457,7 @@ data Constraints r = Constraints
     , linearConstraints ∷ !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
     } deriving (Read, Show, Typeable)
 
-deriving instance Container Vector r ⇒ Eq (Constraints r)
+deriving instance (Eq r, Container Vector r) ⇒ Eq (Constraints r)
 
 -- | Linear constraints consisting of a constraints matrix, @k><m@ and
 --   a right hand constraints vector, of length @k@ where @m@ is the number of
