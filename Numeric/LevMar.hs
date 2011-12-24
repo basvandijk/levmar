@@ -85,7 +85,7 @@ import Foreign.ForeignPtr    ( mallocForeignPtrArray )
 #endif
 
 #if __GLASGOW_HASKELL__ < 700
-import Prelude               ( fromInteger )
+import Prelude               ( fromInteger, (>>=), (>>), fail )
 #endif
 
 -- from base-unicode-symbols:
