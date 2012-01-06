@@ -10,7 +10,7 @@ maintainer:    Roel van Dijk <vandijk.roel@gmail.com>
 copyright:     (c) 2009 - 2011 Roel van Dijk & Bas van Dijk
 license:       BSD3
 license-file:  LICENSE
-homepage:      https://github.com/basvandijk/levmar/
+homepage:      https://github.com/basvandijk/levmar
 bug-reports:   https://github.com/basvandijk/levmar/issues
 category:      Numerical, Math
 synopsis:      An implementation of the Levenberg-Marquardt algorithm
