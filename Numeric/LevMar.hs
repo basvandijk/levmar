@@ -49,10 +49,11 @@ module Numeric.LevMar
 -- from base:
 import Control.Monad         ( return, mplus )
 import Control.Exception     ( Exception )
+import Data.Bool             ( otherwise )
 import Data.Data             ( Data )
 import Data.Typeable         ( Typeable )
 import Data.Either           ( Either(Left, Right) )
-import Data.Eq               ( Eq )
+import Data.Eq               ( Eq, (==) )
 import Data.Function         ( ($) )
 import Data.Functor          ( (<$>) )
 import Data.Int              ( Int )
@@ -266,7 +267,9 @@ gen_levmar f_der
            f_lec_dif
            f_blec_der
            f_blec_dif
-           model mJac ps ys itMax opts (Constraints mLowBs mUpBs mWeights mLinC) =
+           model mJac ps ys itMax opts (Constraints mLowBs mUpBs mWeights mLinC)
+               | m == 0    = Left LevMarError -- LAPACK will crash otherwise!
+               | otherwise =
   -- All effects are contained, so we can safely perform:
   unsafePerformIO $ do
 
