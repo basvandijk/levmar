@@ -25,24 +25,20 @@
 
 module Numeric.LevMar
     ( -- * Model & Jacobian.
-      Model
-    , Jacobian
+      Params, Samples
+    , Model, Jacobian
 
       -- * Levenberg-Marquardt algorithm.
     , LevMarable(levmar)
 
       -- * Minimization options.
-    , Options(..)
-    , defaultOpts
+    , Options(..), defaultOpts
 
       -- * Constraints
-    , Constraints(..)
-    , LinearConstraints
+    , Constraints(..), LinearConstraints
 
       -- * Output
-    , Info(..)
-    , StopReason(..)
-    , LevMarError(..)
+    , Info(..), StopReason(..), LevMarError(..)
     ) where
 
 
@@ -64,12 +60,13 @@ import Data.List             ( lookup, (++) )
 import Data.Maybe            ( Maybe(Nothing, Just), isJust, fromJust, fromMaybe )
 import Data.Monoid           ( Monoid, mempty, mappend )
 import Data.Ord              ( Ord, (<) )
+import Foreign.C.Types       ( CInt )
 import Foreign.Marshal.Array ( allocaArray, withArray, peekArray, copyArray )
 import Foreign.Ptr           ( Ptr, nullPtr )
 import Foreign.ForeignPtr    ( ForeignPtr, newForeignPtr_, withForeignPtr )
 import Foreign.Storable      ( Storable )
 import Prelude               ( Enum, Fractional, RealFrac, Float, Double
-                             , toEnum, (-), (*), error, floor
+                             , fromIntegral, toEnum, (-), (*), error, floor
                              )
 import System.IO             ( IO )
 import System.IO.Unsafe      ( unsafePerformIO )
@@ -148,31 +145,43 @@ import Bindings.LevMar.CurryFriendly ( LevMarDer,     LevMarDif
 -- Model & Jacobian.
 --------------------------------------------------------------------------------
 
+-- | Parameter vector of length @m@.
+--
+-- Ensure that @m <= n@ where @n@ is the length of the 'Samples' vector.
+type Params r = Vector r
+
+-- | Sample vector of length @n@.
+--
+-- Ensure that @n >= m@ where @m@ is the length of the 'Params' vector.
+type Samples r = Vector r
+
 {-| A functional relation describing measurements represented as a function
-from a vector of parameters to a vector of expected measurements.
+from a vector of parameters to a vector of expected samples.
 
- * Ensure that the length of the parameters vector equals the length of the
-   initial parameters vector in 'levmar'.
+ * Ensure that the length @m@ of the parameter vector equals the length of the
+   initial parameter vector in 'levmar'.
 
- * Ensure that the length of the ouput vector equals the length of the samples
-   vector in 'levmar'.
+ * Ensure that the length @n@ of the output sample vector equals the length of
+   the sample vector in 'levmar'.
+
+ * Ensure that the length @n@ of the output sample vector vector is bigger than or
+   equal to the length @m@ of the parameter vector.
 -}
-type Model r = Vector r → Vector r
+type Model r = Params r → Samples r
 
 {-| The jacobian of the 'Model' function. Expressed as a function from a vector
-of parameters to a matrix which for each expected measurement describes
-the partial derivatives of the parameters.
+of parameters to a matrix which for each expected sample describes the partial
+derivatives of the parameters.
 
 See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
 
- * Ensure that the length of the parameter vector equals the length of the initial
-   parameter vector in 'levmar'.
+ * Ensure that the length @m@ of the parameter vector equals the length of the
+   initial parameter vector in 'levmar'.
 
  * Ensure that the output matrix has the dimension @n><m@ where @n@ is the
    number of samples and @m@ is the number of parameters.
 -}
-type Jacobian r = Vector r → Matrix r
-
+type Jacobian r = Params r → Matrix r
 
 --------------------------------------------------------------------------------
 -- Levenberg-Marquardt algorithm.
@@ -183,17 +192,19 @@ class LevMarable r where
 
     -- | The Levenberg-Marquardt algorithm.
     --
-    -- Returns a tuple of the found parameters, a structure containing
+    -- Returns a triple of the found parameters, a structure containing
     -- information about the minimization and the covariance matrix
     -- corresponding to LS solution.
+    --
+    -- Ensure that @n >= m@.
     levmar ∷ Model r            -- ^ Model
            → Maybe (Jacobian r) -- ^ Optional jacobian
-           → Vector r           -- ^ Initial parameters
-           → Vector r           -- ^ Samples
+           → Params r           -- ^ Initial parameters of length @m@
+           → Samples r          -- ^ Sample vector of length @n@
            → Int                -- ^ Maximum iterations
            → Options r          -- ^ Minimization options
            → Constraints r      -- ^ Constraints
-           → Either LevMarError (Vector r, Info r, Matrix r)
+           → Either LevMarError (Params r, Info r, Matrix r)
 
 instance LevMarable Float where
     levmar = gen_levmar slevmar_der
@@ -241,12 +252,12 @@ gen_levmar ∷ ∀ r. (Storable r, RealFrac r, Element r)
 
            → Model r            -- ^ Model
            → Maybe (Jacobian r) -- ^ Optional jacobian
-           → Vector r           -- ^ Initial parameters
-           → Vector r           -- ^ Samples
+           → Params r           -- ^ Initial parameters
+           → Samples r          -- ^ Samples
            → Int                -- ^ Maximum iterations
            → Options r          -- ^ Options
            → Constraints r      -- ^ Constraints
-           → Either LevMarError (Vector r, Info r, Matrix r)
+           → Either LevMarError (Params r, Info r, Matrix r)
 gen_levmar f_der
            f_dif
            f_bc_der
@@ -268,10 +279,10 @@ gen_levmar f_der
     -- Note that, in the end, the array is returned from this function.
     -- This means that the only way to guarantee its finalisation
     -- is to allocate it using a ForeignPtr:
-    psFP ← fastMallocForeignPtrArray lenPs
+    psFP ← fastMallocForeignPtrArray m
     withForeignPtr psFP $ \psPtr → do
       VS.unsafeWith ps $ \psPtrInp →
-        copyArray psPtr psPtrInp lenPs
+        copyArray psPtr psPtrInp m
 
       -- Retrieve the (read-only) pointer 'ysPtr' to the samples vector 'ys'
       -- so we can pass it to the C function:
@@ -292,7 +303,7 @@ gen_levmar f_der
             -- Like the parameters array the matrix
             -- needs to be returned from this function.
             -- So we also allocate it using a ForeignPtr:
-            covarFP ← fastMallocForeignPtrArray covarLen
+            covarFP ← fastMallocForeignPtrArray mm
             withForeignPtr covarFP $ \covarPtr →
 
               -- 'cmodel' is the low-level model function which is converted
@@ -306,20 +317,20 @@ gen_levmar f_der
               let cmodel ∷ Bindings.LevMar.Model r
                   cmodel parPtr hxPtr _ _ _ = do
                     parFP ← newForeignPtr_ parPtr
-                    let psV = VS.unsafeFromForeignPtr parFP 0 lenPs
+                    let psV = VS.unsafeFromForeignPtr parFP 0 m
                         vector = model psV
                     VS.unsafeWith vector $ \p → copyArray hxPtr p (VS.length vector)
               in withModel cmodel $ \modelFunPtr → do
 
                  -- All the low-level C functions share a common set of arguments.
                  -- 'runDif' applies these arguments to the given C function 'f':
-                 let runDif ∷ LevMarDif r → IO Int
+                 let runDif ∷ LevMarDif r → IO CInt
                      runDif f = f modelFunPtr
                                   psPtr
                                   ysPtr
-                                  lenPs
-                                  lenYs
-                                  itMax
+                                  (fromIntegral m)
+                                  (fromIntegral n)
+                                  (fromIntegral itMax)
                                   optsPtr
                                   infoPtr
                                   nullPtr
@@ -341,14 +352,14 @@ gen_levmar f_der
                      let cjacobian ∷ Bindings.LevMar.Jacobian r
                          cjacobian parPtr jPtr _ _ _ = do
                            parFP ← newForeignPtr_ parPtr
-                           let psV    = VS.unsafeFromForeignPtr parFP 0 lenPs
+                           let psV    = VS.unsafeFromForeignPtr parFP 0 m
                                matrix = jac psV
                                vector = flatten matrix
                            VS.unsafeWith vector $ \p →
                              copyArray jPtr p (VS.length vector)
                      in withJacobian cjacobian $ \jacobPtr →
 
-                       let runDer ∷ LevMarDer r → IO Int
+                       let runDer ∷ LevMarDer r → IO CInt
                            runDer f = runDif $ f jacobPtr
                        in if boxConstrained
                           then if linConstrained
@@ -368,20 +379,19 @@ gen_levmar f_der
                    then return $ Left $ convertLevMarError err
 
                    else do -- Converting results:
-                           info ← listToInfo <$> peekArray c'LM_INFO_SZ infoPtr
-                           let psV = VS.unsafeFromForeignPtr psFP 0 lenPs
-                           let covarM = reshape lenPs $
-                                          VS.unsafeFromForeignPtr covarFP 0 covarLen
+                     info ← listToInfo <$> peekArray c'LM_INFO_SZ infoPtr
+                     let psV = VS.unsafeFromForeignPtr psFP 0 m
+                     let covarM = reshape m $ VS.unsafeFromForeignPtr covarFP 0 mm
 
-                           return $ Right (psV, info, covarM)
+                     return $ Right (psV, info, covarM)
   where
-    lenPs          = VS.length ps
-    lenYs          = VS.length ys
-    covarLen       = lenPs*lenPs
-    (cMat, rhcVec) = fromJust mLinC
+    m  = VS.length ps
+    n  = VS.length ys
+    mm = m*m
 
     -- Whether the parameters are constrained by a linear equation.
-    linConstrained = isJust mLinC
+    linConstrained = isJust   mLinC
+    (cMat, rhcVec) = fromJust mLinC
 
     -- Whether the parameters are constrained by a bounding box.
     boxConstrained = isJust mLowBs ∨ isJust mUpBs
@@ -394,7 +404,7 @@ gen_levmar f_der
     withLinConstraints f g =
         VS.unsafeWith (flatten cMat) $ \cMatPtr →
           VS.unsafeWith rhcVec $ \rhcVecPtr →
-            f ∘ g cMatPtr rhcVecPtr $ rows cMat
+            f ∘ g cMatPtr rhcVecPtr $ fromIntegral $ rows cMat
 
     withWeights f g = maybeWithArray mWeights $ f ∘ g
 
@@ -451,9 +461,9 @@ optsToList (Opts mu  eps1  eps2  eps3  delta) =
 
 -- | Ensure that these vectors have the same length as the number of parameters.
 data Constraints r = Constraints
-    { lowerBounds       ∷ !(Maybe (Vector r))            -- ^ Optional lower bounds
-    , upperBounds       ∷ !(Maybe (Vector r))            -- ^ Optional upper bounds
-    , weights           ∷ !(Maybe (Vector r))            -- ^ Optional weights
+    { lowerBounds       ∷ !(Maybe (Params r))            -- ^ Optional lower bounds
+    , upperBounds       ∷ !(Maybe (Params r))            -- ^ Optional upper bounds
+    , weights           ∷ !(Maybe (Params r))            -- ^ Optional weights
     , linearConstraints ∷ !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
     } deriving (Read, Show, Typeable)
 
@@ -554,7 +564,7 @@ data LevMarError
 -- Handy in case you want to thow a LevMarError as an exception:
 instance Exception LevMarError
 
-levmarCErrorToLevMarError ∷ [(Int, LevMarError)]
+levmarCErrorToLevMarError ∷ [(CInt, LevMarError)]
 levmarCErrorToLevMarError =
     [ (c'LM_ERROR,                                     LevMarError)
     , (c'LM_ERROR_LAPACK_ERROR,                        LapackError)
@@ -569,6 +579,6 @@ levmarCErrorToLevMarError =
   --, (c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           we don't treat this as an error)
     ]
 
-convertLevMarError ∷ Int → LevMarError
+convertLevMarError ∷ CInt → LevMarError
 convertLevMarError err = fromMaybe (error $ "Unknown levmar error: " ++ show err)
                                    (lookup err levmarCErrorToLevMarError)
