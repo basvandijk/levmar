@@ -28,9 +28,9 @@ description:
   Optional box- and linear constraints can be given. Both single and
   double precision floating point types are supported.
   .
-  The actual algorithm is implemented in a C library which is bundled
-  with @bindings-levmar@ which this package depends on. See:
-  <http://www.ics.forth.gr/~lourakis/levmar/>.
+  The actual algorithm is implemented in a
+  <http://www.ics.forth.gr/~lourakis/levmar/ C library> which is
+  bundled with @bindings-levmar@ which this package depends on.
   .
   A note regarding the license:
   .

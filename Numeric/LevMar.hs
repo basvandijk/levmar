@@ -17,9 +17,9 @@
 --             Bas van Dijk <v.dijk.bas@gmail.com>
 -- Stability:  Experimental
 --
--- For additional documentation see the documentation of the levmar C
+-- For additional documentation see the
+-- <http://www.ics.forth.gr/~lourakis/levmar/ documentation of the levmar C>
 -- library which this library is based on:
--- <http://www.ics.forth.gr/~lourakis/levmar/>
 --
 --------------------------------------------------------------------------------
 
@@ -170,11 +170,10 @@ from a vector of parameters to a vector of expected samples.
 -}
 type Model r = Params r → Samples r
 
-{-| The jacobian of the 'Model' function. Expressed as a function from a vector
-of parameters to a matrix which for each expected sample describes the partial
-derivatives of the parameters.
-
-See: <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant>
+{-| The <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant jacobian>
+of the 'Model' function. Expressed as a function from a vector of
+parameters to a matrix which for each expected sample describes the
+partial derivatives of the parameters.
 
  * Ensure that the length @m@ of the parameter vector equals the length of the
    initial parameter vector in 'levmar'.
