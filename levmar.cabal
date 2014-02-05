@@ -49,8 +49,8 @@ library
   build-depends: base                 >= 3     && < 4.8
                , base-unicode-symbols >= 0.1.1 && < 0.3
                , bindings-levmar      >= 1.1   && < 1.2
-               , hmatrix              >= 0.12  && < 0.15
-               , vector               >= 0.8   && < 0.10
+               , hmatrix              >= 0.12  && < 0.16
+               , vector               >= 0.8   && < 0.11
   exposed-modules: Numeric.LevMar
   other-modules: Bindings.LevMar.CurryFriendly
   ghc-options: -Wall
