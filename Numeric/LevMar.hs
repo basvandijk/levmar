@@ -1,12 +1,11 @@
-{-# LANGUAGE CPP
-           , NoImplicitPrelude
-           , UnicodeSyntax
-           , ScopedTypeVariables
-           , DeriveDataTypeable
-           , StandaloneDeriving
-           , FlexibleContexts
-           , UndecidableInstances
-  #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE DeriveDataTypeable   #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE NoImplicitPrelude    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UnicodeSyntax        #-}
 
 --------------------------------------------------------------------------------
 -- |

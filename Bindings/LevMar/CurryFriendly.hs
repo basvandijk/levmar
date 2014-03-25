@@ -1,4 +1,5 @@
-{-# LANGUAGE NoImplicitPrelude, UnicodeSyntax #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE UnicodeSyntax     #-}
 
 module Bindings.LevMar.CurryFriendly
     ( -- * Handy type synonyms used in the curry friendly types.
