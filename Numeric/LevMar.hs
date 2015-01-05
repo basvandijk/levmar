@@ -5,7 +5,6 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE UnicodeSyntax        #-}
 
 --------------------------------------------------------------------------------
 -- |
@@ -48,12 +47,12 @@ module Numeric.LevMar
 -- from base:
 import Control.Monad         ( return, mplus )
 import Control.Exception     ( Exception )
-import Data.Bool             ( otherwise )
+import Data.Bool             ( (&&), (||), otherwise )
 import Data.Data             ( Data )
 import Data.Typeable         ( Typeable )
 import Data.Either           ( Either(Left, Right) )
-import Data.Eq               ( Eq, (==) )
-import Data.Function         ( ($) )
+import Data.Eq               ( Eq, (==), (/=) )
+import Data.Function         ( (.), ($) )
 import Data.Functor          ( (<$>) )
 import Data.Int              ( Int )
 import Data.List             ( lookup, (++) )
@@ -84,11 +83,6 @@ import Foreign.ForeignPtr    ( mallocForeignPtrArray )
 #if __GLASGOW_HASKELL__ < 700
 import Prelude               ( fromInteger, (>>=), (>>), fail )
 #endif
-
--- from base-unicode-symbols:
-import Data.Bool.Unicode     ( (∧), (∨) )
-import Data.Eq.Unicode       ( (≢) )
-import Data.Function.Unicode ( (∘) )
 
 -- from hmatrix:
 import Data.Packed.Matrix    ( Matrix, Element, flatten, rows, reshape )
@@ -167,7 +161,7 @@ from a vector of parameters to a vector of expected samples.
  * Ensure that the length @n@ of the output sample vector vector is bigger than or
    equal to the length @m@ of the parameter vector.
 -}
-type Model r = Params r → Samples r
+type Model r = Params r -> Samples r
 
 {-| The <http://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant jacobian>
 of the 'Model' function. Expressed as a function from a vector of
@@ -180,7 +174,7 @@ partial derivatives of the parameters.
  * Ensure that the output matrix has the dimension @n><m@ where @n@ is the
    number of samples and @m@ is the number of parameters.
 -}
-type Jacobian r = Params r → Matrix r
+type Jacobian r = Params r -> Matrix r
 
 --------------------------------------------------------------------------------
 -- Levenberg-Marquardt algorithm.
@@ -196,14 +190,14 @@ class LevMarable r where
     -- corresponding to LS solution.
     --
     -- Ensure that @n >= m@.
-    levmar ∷ Model r            -- ^ Model
-           → Maybe (Jacobian r) -- ^ Optional jacobian
-           → Params r           -- ^ Initial parameters of length @m@
-           → Samples r          -- ^ Sample vector of length @n@
-           → Int                -- ^ Maximum iterations
-           → Options r          -- ^ Minimization options
-           → Constraints r      -- ^ Constraints
-           → Either LevMarError (Params r, Info r, Matrix r)
+    levmar :: Model r            -- ^ Model
+           -> Maybe (Jacobian r) -- ^ Optional jacobian
+           -> Params r           -- ^ Initial parameters of length @m@
+           -> Samples r          -- ^ Sample vector of length @n@
+           -> Int                -- ^ Maximum iterations
+           -> Options r          -- ^ Minimization options
+           -> Constraints r      -- ^ Constraints
+           -> Either LevMarError (Params r, Info r, Matrix r)
 
 instance LevMarable Float where
     levmar = gen_levmar slevmar_der
@@ -239,24 +233,24 @@ Preconditions:
   boxConstrained && (all $ zipWith (<=) (fromJust mLowBs) (fromJust mUpBs))
 @
 -}
-gen_levmar ∷ ∀ r. (Storable r, RealFrac r, Element r)
-           ⇒ LevMarDer r
-           → LevMarDif r
-           → LevMarBCDer r
-           → LevMarBCDif r
-           → LevMarLecDer r
-           → LevMarLecDif r
-           → LevMarBLecDer r
-           → LevMarBLecDif r
+gen_levmar :: forall r. (Storable r, RealFrac r, Element r)
+           => LevMarDer r
+           -> LevMarDif r
+           -> LevMarBCDer r
+           -> LevMarBCDif r
+           -> LevMarLecDer r
+           -> LevMarLecDif r
+           -> LevMarBLecDer r
+           -> LevMarBLecDif r
 
-           → Model r            -- ^ Model
-           → Maybe (Jacobian r) -- ^ Optional jacobian
-           → Params r           -- ^ Initial parameters
-           → Samples r          -- ^ Samples
-           → Int                -- ^ Maximum iterations
-           → Options r          -- ^ Options
-           → Constraints r      -- ^ Constraints
-           → Either LevMarError (Params r, Info r, Matrix r)
+           -> Model r            -- ^ Model
+           -> Maybe (Jacobian r) -- ^ Optional jacobian
+           -> Params r           -- ^ Initial parameters
+           -> Samples r          -- ^ Samples
+           -> Int                -- ^ Maximum iterations
+           -> Options r          -- ^ Options
+           -> Constraints r      -- ^ Constraints
+           -> Either LevMarError (Params r, Info r, Matrix r)
 gen_levmar f_der
            f_dif
            f_bc_der
@@ -280,32 +274,32 @@ gen_levmar f_der
     -- Note that, in the end, the array is returned from this function.
     -- This means that the only way to guarantee its finalisation
     -- is to allocate it using a ForeignPtr:
-    psFP ← fastMallocForeignPtrArray m
-    withForeignPtr psFP $ \psPtr → do
-      VS.unsafeWith ps $ \psPtrInp →
+    psFP <- fastMallocForeignPtrArray m
+    withForeignPtr psFP $ \psPtr -> do
+      VS.unsafeWith ps $ \psPtrInp ->
         copyArray psPtr psPtrInp m
 
       -- Retrieve the (read-only) pointer 'ysPtr' to the samples vector 'ys'
       -- so we can pass it to the C function:
-      VS.unsafeWith ys $ \ysPtr →
+      VS.unsafeWith ys $ \ysPtr ->
 
         -- Convert the Options 'opts' to a list and then to an array
         -- so we can pass the (read-only) pointer 'optsPtr' to the C function:
-        withArray (optsToList opts) $ \optsPtr →
+        withArray (optsToList opts) $ \optsPtr ->
 
           -- Allocate space for the info array
           -- so we can pass it to the C function.
           -- Note that, in the end, this array is converted to an Info value
           -- and returned from this function.
-          allocaArray c'LM_INFO_SZ $ \infoPtr → do
+          allocaArray c'LM_INFO_SZ $ \infoPtr -> do
 
             -- Allocate space for the covariance matrix
             -- so we can pass it to the C function.
             -- Like the parameters array the matrix
             -- needs to be returned from this function.
             -- So we also allocate it using a ForeignPtr:
-            covarFP ← fastMallocForeignPtrArray mm
-            withForeignPtr covarFP $ \covarPtr →
+            covarFP <- fastMallocForeignPtrArray mm
+            withForeignPtr covarFP $ \covarPtr ->
 
               -- 'cmodel' is the low-level model function which is converted
               -- to the FunPtr 'modelFunPtr' and passed to the C function.
@@ -315,17 +309,17 @@ gen_levmar f_der
               -- Then it will apply the high-level 'model' function
               -- to this parameter vector. The resulting vector is then copied
               -- to the output buffer 'hxPtr':
-              let cmodel ∷ Bindings.LevMar.Model r
+              let cmodel :: Bindings.LevMar.Model r
                   cmodel parPtr hxPtr _ _ _ = do
-                    parFP ← newForeignPtr_ parPtr
+                    parFP <- newForeignPtr_ parPtr
                     let psV = VS.unsafeFromForeignPtr parFP 0 m
                         vector = model psV
-                    VS.unsafeWith vector $ \p → copyArray hxPtr p (VS.length vector)
-              in withModel cmodel $ \modelFunPtr → do
+                    VS.unsafeWith vector $ \p -> copyArray hxPtr p (VS.length vector)
+              in withModel cmodel $ \modelFunPtr -> do
 
                  -- All the low-level C functions share a common set of arguments.
                  -- 'runDif' applies these arguments to the given C function 'f':
-                 let runDif ∷ LevMarDif r → IO CInt
+                 let runDif :: LevMarDif r -> IO CInt
                      runDif f = f modelFunPtr
                                   psPtr
                                   ysPtr
@@ -338,29 +332,29 @@ gen_levmar f_der
                                   covarPtr
                                   nullPtr
 
-                 err ← case mJac of
-                   Nothing → if boxConstrained
-                             then if linConstrained
-                                  then withBoxConstraints
-                                         (withLinConstraints $ withWeights runDif)
-                                         f_blec_dif
-                                  else withBoxConstraints runDif f_bc_dif
-                             else if linConstrained
-                                  then withLinConstraints runDif f_lec_dif
-                                  else runDif f_dif
+                 err <- case mJac of
+                   Nothing -> if boxConstrained
+                              then if linConstrained
+                                   then withBoxConstraints
+                                          (withLinConstraints $ withWeights runDif)
+                                          f_blec_dif
+                                   else withBoxConstraints runDif f_bc_dif
+                              else if linConstrained
+                                   then withLinConstraints runDif f_lec_dif
+                                   else runDif f_dif
 
-                   Just jac →
-                     let cjacobian ∷ Bindings.LevMar.Jacobian r
+                   Just jac ->
+                     let cjacobian :: Bindings.LevMar.Jacobian r
                          cjacobian parPtr jPtr _ _ _ = do
-                           parFP ← newForeignPtr_ parPtr
+                           parFP <- newForeignPtr_ parPtr
                            let psV    = VS.unsafeFromForeignPtr parFP 0 m
                                matrix = jac psV
                                vector = flatten matrix
-                           VS.unsafeWith vector $ \p →
+                           VS.unsafeWith vector $ \p ->
                              copyArray jPtr p (VS.length vector)
-                     in withJacobian cjacobian $ \jacobPtr →
+                     in withJacobian cjacobian $ \jacobPtr ->
 
-                       let runDer ∷ LevMarDer r → IO CInt
+                       let runDer :: LevMarDer r -> IO CInt
                            runDer f = runDif $ f jacobPtr
                        in if boxConstrained
                           then if linConstrained
@@ -375,12 +369,12 @@ gen_levmar f_der
                  -- Handling errors:
                  if err < 0
                     -- we don't treat the following two as an error:
-                    ∧ err ≢ c'LM_ERROR_SINGULAR_MATRIX
-                    ∧ err ≢ c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
+                    && err /= c'LM_ERROR_SINGULAR_MATRIX
+                    && err /= c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE
                    then return $ Left $ convertLevMarError err
 
                    else do -- Converting results:
-                     info ← listToInfo <$> peekArray c'LM_INFO_SZ infoPtr
+                     info <- listToInfo <$> peekArray c'LM_INFO_SZ infoPtr
                      let psV = VS.unsafeFromForeignPtr psFP 0 m
                      let covarM = reshape m $ VS.unsafeFromForeignPtr covarFP 0 mm
 
@@ -395,31 +389,31 @@ gen_levmar f_der
     (cMat, rhcVec) = fromJust mLinC
 
     -- Whether the parameters are constrained by a bounding box.
-    boxConstrained = isJust mLowBs ∨ isJust mUpBs
+    boxConstrained = isJust mLowBs || isJust mUpBs
 
     withBoxConstraints f g =
-        maybeWithArray mLowBs $ \lBsPtr →
-          maybeWithArray mUpBs $ \uBsPtr →
+        maybeWithArray mLowBs $ \lBsPtr ->
+          maybeWithArray mUpBs $ \uBsPtr ->
             f $ g lBsPtr uBsPtr
 
     withLinConstraints f g =
-        VS.unsafeWith (flatten cMat) $ \cMatPtr →
-          VS.unsafeWith rhcVec $ \rhcVecPtr →
-            f ∘ g cMatPtr rhcVecPtr $ fromIntegral $ rows cMat
+        VS.unsafeWith (flatten cMat) $ \cMatPtr ->
+          VS.unsafeWith rhcVec $ \rhcVecPtr ->
+            f . g cMatPtr rhcVecPtr $ fromIntegral $ rows cMat
 
-    withWeights f g = maybeWithArray mWeights $ f ∘ g
+    withWeights f g = maybeWithArray mWeights $ f . g
 
-maybeWithArray ∷ (Storable α) ⇒ Maybe (Vector α) → (Ptr α → IO β) → IO β
+maybeWithArray :: (Storable a) => Maybe (Vector a) -> (Ptr a -> IO β) -> IO β
 maybeWithArray Nothing  f = f nullPtr
 maybeWithArray (Just v) f = VS.unsafeWith v f
 
 #if __GLASGOW_HASKELL__ >= 605
 {-# INLINE fastMallocForeignPtrArray #-}
-fastMallocForeignPtrArray ∷ ∀ α. Storable α ⇒ Int → IO (ForeignPtr α)
+fastMallocForeignPtrArray :: forall a. Storable a => Int -> IO (ForeignPtr a)
 fastMallocForeignPtrArray n = mallocPlainForeignPtrBytes
-                                (n * sizeOf (undefined ∷ α))
+                                (n * sizeOf (undefined :: a))
 #else
-fastMallocForeignPtrArray ∷ ∀ α. Storable α ⇒ Int → IO (ForeignPtr α)
+fastMallocForeignPtrArray :: forall a. Storable a => Int -> IO (ForeignPtr a)
 fastMallocForeignPtrArray = mallocForeignPtrArray
 #endif
 
@@ -430,20 +424,20 @@ fastMallocForeignPtrArray = mallocForeignPtrArray
 
 -- | Minimization options
 data Options r =
-    Opts { optScaleInitMu      ∷ !r -- ^ Scale factor for initial /mu/.
-         , optStopNormInfJacTe ∷ !r -- ^ Stopping thresholds for @||J^T e||_inf@.
-         , optStopNorm2Dp      ∷ !r -- ^ Stopping thresholds for @||Dp||_2@.
-         , optStopNorm2E       ∷ !r -- ^ Stopping thresholds for @||e||_2@.
-         , optDelta            ∷ !r -- ^ Step used in the difference
-                                    -- approximation to the Jacobian. If
-                                    -- @optDelta<0@, the Jacobian is approximated
-                                    -- with central differences which are more
-                                    -- accurate (but slower!)  compared to the
-                                    -- forward differences employed by default.
+    Opts { optScaleInitMu      :: !r -- ^ Scale factor for initial /mu/.
+         , optStopNormInfJacTe :: !r -- ^ Stopping thresholds for @||J^T e||_inf@.
+         , optStopNorm2Dp      :: !r -- ^ Stopping thresholds for @||Dp||_2@.
+         , optStopNorm2E       :: !r -- ^ Stopping thresholds for @||e||_2@.
+         , optDelta            :: !r -- ^ Step used in the difference
+                                     -- approximation to the Jacobian. If
+                                     -- @optDelta<0@, the Jacobian is approximated
+                                     -- with central differences which are more
+                                     -- accurate (but slower!)  compared to the
+                                     -- forward differences employed by default.
          } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- | Default minimization options
-defaultOpts ∷ Fractional r ⇒ Options r
+defaultOpts :: Fractional r => Options r
 defaultOpts = Opts { optScaleInitMu      = c'LM_INIT_MU
                    , optStopNormInfJacTe = c'LM_STOP_THRESH
                    , optStopNorm2Dp      = c'LM_STOP_THRESH
@@ -451,7 +445,7 @@ defaultOpts = Opts { optScaleInitMu      = c'LM_INIT_MU
                    , optDelta            = c'LM_DIFF_DELTA
                    }
 
-optsToList ∷ Options r → [r]
+optsToList :: Options r -> [r]
 optsToList (Opts mu  eps1  eps2  eps3  delta) =
                 [mu, eps1, eps2, eps3, delta]
 
@@ -462,13 +456,13 @@ optsToList (Opts mu  eps1  eps2  eps3  delta) =
 
 -- | Ensure that these vectors have the same length as the number of parameters.
 data Constraints r = Constraints
-    { lowerBounds       ∷ !(Maybe (Params r))            -- ^ Optional lower bounds
-    , upperBounds       ∷ !(Maybe (Params r))            -- ^ Optional upper bounds
-    , weights           ∷ !(Maybe (Params r))            -- ^ Optional weights
-    , linearConstraints ∷ !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
+    { lowerBounds       :: !(Maybe (Params r))            -- ^ Optional lower bounds
+    , upperBounds       :: !(Maybe (Params r))            -- ^ Optional upper bounds
+    , weights           :: !(Maybe (Params r))            -- ^ Optional weights
+    , linearConstraints :: !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
     } deriving (Read, Show, Typeable)
 
-deriving instance (Eq r, Container Vector r) ⇒ Eq (Constraints r)
+deriving instance (Eq r, Container Vector r) => Eq (Constraints r)
 
 -- | Linear constraints consisting of a constraints matrix, @k><m@ and
 --   a right hand constraints vector, of length @k@ where @m@ is the number of
@@ -494,20 +488,20 @@ instance Monoid (Constraints r) where
 
 -- | Information regarding the minimization.
 data Info r = Info
-  { infNorm2initE      ∷ !r          -- ^ @||e||_2@             at initial parameters.
-  , infNorm2E          ∷ !r          -- ^ @||e||_2@             at estimated parameters.
-  , infNormInfJacTe    ∷ !r          -- ^ @||J^T e||_inf@       at estimated parameters.
-  , infNorm2Dp         ∷ !r          -- ^ @||Dp||_2@            at estimated parameters.
-  , infMuDivMax        ∷ !r          -- ^ @\mu/max[J^T J]_ii ]@ at estimated parameters.
-  , infNumIter         ∷ !Int        -- ^ Number of iterations.
-  , infStopReason      ∷ !StopReason -- ^ Reason for terminating.
-  , infNumFuncEvals    ∷ !Int        -- ^ Number of function evaluations.
-  , infNumJacobEvals   ∷ !Int        -- ^ Number of jacobian evaluations.
-  , infNumLinSysSolved ∷ !Int        -- ^ Number of linear systems solved,
-                                     --   i.e. attempts for reducing error.
+  { infNorm2initE      :: !r          -- ^ @||e||_2@             at initial parameters.
+  , infNorm2E          :: !r          -- ^ @||e||_2@             at estimated parameters.
+  , infNormInfJacTe    :: !r          -- ^ @||J^T e||_inf@       at estimated parameters.
+  , infNorm2Dp         :: !r          -- ^ @||Dp||_2@            at estimated parameters.
+  , infMuDivMax        :: !r          -- ^ @\mu/max[J^T J]_ii ]@ at estimated parameters.
+  , infNumIter         :: !Int        -- ^ Number of iterations.
+  , infStopReason      :: !StopReason -- ^ Reason for terminating.
+  , infNumFuncEvals    :: !Int        -- ^ Number of function evaluations.
+  , infNumJacobEvals   :: !Int        -- ^ Number of jacobian evaluations.
+  , infNumLinSysSolved :: !Int        -- ^ Number of linear systems solved,
+                                      --   i.e. attempts for reducing error.
   } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
-listToInfo ∷ (RealFrac r) ⇒ [r] → Info r
+listToInfo :: (RealFrac r) => [r] -> Info r
 listToInfo [a,b,c,d,e,f,g,h,i,j] =
     Info { infNorm2initE      = a
          , infNorm2E          = b
@@ -565,7 +559,7 @@ data LevMarError
 -- Handy in case you want to thow a LevMarError as an exception:
 instance Exception LevMarError
 
-levmarCErrorToLevMarError ∷ [(CInt, LevMarError)]
+levmarCErrorToLevMarError :: [(CInt, LevMarError)]
 levmarCErrorToLevMarError =
     [ (c'LM_ERROR,                                     LevMarError)
     , (c'LM_ERROR_LAPACK_ERROR,                        LapackError)
@@ -580,6 +574,6 @@ levmarCErrorToLevMarError =
   --, (c'LM_ERROR_SUM_OF_SQUARES_NOT_FINITE,           we don't treat this as an error)
     ]
 
-convertLevMarError ∷ CInt → LevMarError
+convertLevMarError :: CInt -> LevMarError
 convertLevMarError err = fromMaybe (error $ "Unknown levmar error: " ++ show err)
                                    (lookup err levmarCErrorToLevMarError)

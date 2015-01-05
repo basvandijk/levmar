@@ -1,12 +1,10 @@
-{ cabal, baseUnicodeSymbols, bindingsLevmar, hmatrix, vector }:
+{ cabal, bindingsLevmar, hmatrix, vector }:
 
 cabal.mkDerivation (self: {
   pname = "levmar";
   version = "HEAD";
   src = ./.;
-  buildDepends = [
-    baseUnicodeSymbols bindingsLevmar hmatrix vector
-  ];
+  buildDepends = [ bindingsLevmar hmatrix vector ];
   meta = {
     homepage = "https://github.com/basvandijk/levmar";
     description = "An implementation of the Levenberg-Marquardt algorithm";
