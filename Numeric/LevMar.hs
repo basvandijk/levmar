@@ -64,7 +64,7 @@ import Foreign.Marshal.Array ( allocaArray, withArray, peekArray, copyArray )
 import Foreign.Ptr           ( Ptr, nullPtr )
 import Foreign.ForeignPtr    ( ForeignPtr, newForeignPtr_, withForeignPtr )
 import Foreign.Storable      ( Storable )
-import Prelude               ( Enum, Fractional, RealFrac, Float, Double
+import Prelude               ( Num, Enum, Fractional, RealFrac, Float, Double
                              , fromIntegral, toEnum, (-), (*), error, floor
                              )
 import System.IO             ( IO )
@@ -85,9 +85,14 @@ import Prelude               ( fromInteger, (>>=), (>>), fail )
 #endif
 
 -- from hmatrix:
-import Data.Packed.Matrix    ( Matrix, Element, flatten, rows, reshape )
-import Numeric.Container     ( Container )
-import Numeric.LinearAlgebra ( {- Instances for Matrix -} )
+#if MIN_VERSION_hmatrix(0,17,0)
+import Numeric.LinearAlgebra.Data ( Matrix, flatten, rows, reshape )
+import Numeric.LinearAlgebra      ( Container, Element )
+#else
+import Data.Packed.Matrix         ( Matrix, Element, flatten, rows, reshape )
+import Numeric.Container          ( Container )
+import Numeric.LinearAlgebra      ( {- Instances for Matrix -} )
+#endif
 
 -- from vector:
 import           Data.Vector.Storable       ( Vector )
@@ -233,7 +238,7 @@ Preconditions:
   boxConstrained && (all $ zipWith (<=) (fromJust mLowBs) (fromJust mUpBs))
 @
 -}
-gen_levmar :: forall r. (Storable r, RealFrac r, Element r)
+gen_levmar :: forall r. (RealFrac r, Element r)
            => LevMarDer r
            -> LevMarDif r
            -> LevMarBCDer r
@@ -462,7 +467,7 @@ data Constraints r = Constraints
     , linearConstraints :: !(Maybe (LinearConstraints r)) -- ^ Optional linear constraints
     } deriving (Read, Show, Typeable)
 
-deriving instance (Eq r, Container Vector r) => Eq (Constraints r)
+deriving instance (Eq r, Container Vector r, Num r) => Eq (Constraints r)
 
 -- | Linear constraints consisting of a constraints matrix, @k><m@ and
 --   a right hand constraints vector, of length @k@ where @m@ is the number of

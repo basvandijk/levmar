@@ -1,5 +1,5 @@
 name:          levmar
-version:       1.2.1.5
+version:       1.2.1.6
 cabal-version: >= 1.6
 build-type:    Simple
 stability:     experimental
@@ -46,10 +46,10 @@ source-repository head
   Location: git://github.com/basvandijk/levmar.git
 
 library
-  build-depends: base                 >= 3     && < 4.9
+  build-depends: base                 >= 3     && < 4.10
                , bindings-levmar      >= 1.1   && < 1.2
-               , hmatrix              >= 0.12  && < 0.17
-               , vector               >= 0.8   && < 0.11
+               , hmatrix              >= 0.12  && < 0.18
+               , vector               >= 0.8   && < 0.12
   exposed-modules: Numeric.LevMar
   other-modules: Bindings.LevMar.CurryFriendly
   ghc-options: -Wall
