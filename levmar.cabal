@@ -46,7 +46,7 @@ source-repository head
   Location: git://github.com/basvandijk/levmar.git
 
 library
-  build-depends: base                 >= 3     && < 4.10
+  build-depends: base                 >= 3     && < 4.11
                , bindings-levmar      >= 1.1   && < 1.2
                , hmatrix              >= 0.12  && < 0.18
                , vector               >= 0.8   && < 0.12
