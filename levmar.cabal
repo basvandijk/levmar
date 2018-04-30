@@ -46,10 +46,10 @@ source-repository head
   Location: git://github.com/basvandijk/levmar.git
 
 library
-  build-depends: base                 >= 3     && < 4.11
+  build-depends: base                 >= 3     && < 4.13
                , bindings-levmar      >= 1.1   && < 1.2
                , hmatrix              >= 0.12  && < 0.19
-               , vector               >= 0.8   && < 0.12
+               , vector               >= 0.8   && < 0.13
   exposed-modules: Numeric.LevMar
   other-modules: Bindings.LevMar.CurryFriendly
   ghc-options: -Wall
