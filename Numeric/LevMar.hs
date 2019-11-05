@@ -59,6 +59,7 @@ import Data.List             ( lookup, (++) )
 import Data.Maybe            ( Maybe(Nothing, Just), isJust, fromJust, fromMaybe )
 import Data.Monoid           ( Monoid, mempty, mappend )
 import Data.Ord              ( Ord, (<) )
+import Data.Semigroup as Sem
 import Foreign.C.Types       ( CInt )
 import Foreign.Marshal.Array ( allocaArray, withArray, peekArray, copyArray )
 import Foreign.Ptr           ( Ptr, nullPtr )
@@ -474,17 +475,21 @@ deriving instance (Eq r, Container Vector r, Num r) => Eq (Constraints r)
 --   parameters and @k@ is the number of constraints.
 type LinearConstraints r = (Matrix r, Vector r)
 
+instance Sem.Semigroup (Constraints r) where
+  Constraints lb1 ub1 w1 l1 <> Constraints lb2 ub2 w2 l2 =
+    Constraints
+      (lb1 `mplus` lb2)
+      (ub1 `mplus` ub2)
+      (w1  `mplus` w2)
+      (l1  `mplus` l2)
+
 -- | * 'mempty' is defined as a 'Constraints' where all fields are 'Nothing'.
 --
 --   * 'mappend' merges two 'Constraints' by taking the first non-'Nothing' value
 --     for each field.
 instance Monoid (Constraints r) where
     mempty = Constraints Nothing Nothing Nothing Nothing
-    mappend (Constraints lb1 ub1 w1 l1)
-            (Constraints lb2 ub2 w2 l2) = Constraints (lb1 `mplus` lb2)
-                                                      (ub1 `mplus` ub2)
-                                                      (w1  `mplus` w2)
-                                                      (l1  `mplus` l2)
+    mappend = (<>)
 
 
 --------------------------------------------------------------------------------
